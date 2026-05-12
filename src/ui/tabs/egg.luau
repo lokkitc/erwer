@@ -80,45 +80,46 @@ local function EggTab(deps)
 		humanoid:EquipTool(tool)
 	end
 
-	local function getNearestCanPlant(maxDist)
-		maxDist = maxDist or 80
+	local function getCanPlantsInRange(maxDist)
+		maxDist = maxDist or 35
 		local character = player.Character
 		if not character then
-			return nil
+			return {}
 		end
 		local hrp = character:FindFirstChild("HumanoidRootPart")
 		if not hrp or not hrp:IsA("BasePart") then
-			return nil
+			return {}
 		end
 		local pl = workspace:FindFirstChild("Farm")
 		if not pl then
-			return nil
+			return {}
 		end
 		local farm = pl:FindFirstChild("Farm")
 		if not farm then
-			return nil
+			return {}
 		end
 		local important = farm:FindFirstChild("Important")
 		if not important then
-			return nil
+			return {}
 		end
 		local loc = important:FindFirstChild("Plant_Locations")
 		if not loc then
-			return nil
+			return {}
 		end
 
-		local best
-		local bestD = maxDist
+		local list = {}
 		for _, obj in ipairs(loc:GetChildren()) do
 			if obj.Name == "Can_Plant" and obj:IsA("BasePart") then
 				local d = (obj.Position - hrp.Position).Magnitude
-				if d < bestD then
-					bestD = d
-					best = obj
+				if d <= maxDist then
+					list[#list + 1] = obj
 				end
 			end
 		end
-		return best
+		table.sort(list, function(a, b)
+			return a.Name < b.Name
+		end)
+		return list
 	end
 
 	local function tryPlaceWithRemotes(toolName, canPlant)
@@ -157,6 +158,9 @@ local function EggTab(deps)
 
 	local autoConn
 	local lastPlace = 0
+	local lastScan = 0
+	local scanCache = {}
+	local scanIndex = 1
 	local function setAutoPlace(on)
 		if autoConn then
 			autoConn:Disconnect()
@@ -166,15 +170,30 @@ local function EggTab(deps)
 			return
 		end
 		lastPlace = 0
+		lastScan = 0
+		scanCache = {}
+		scanIndex = 1
 		autoConn = RunService.Heartbeat:Connect(function()
 			if not state.Values.AutoPlaceEgg then
 				return
 			end
 			local now = os.clock()
-			if now - lastPlace < 0.35 then
+			local spamDelay = 0.08
+			if now - lastPlace < spamDelay then
 				return
 			end
 			lastPlace = now
+
+			local scanDelay = 0.6
+			local radius = 35
+			if now - lastScan > scanDelay or #scanCache == 0 then
+				lastScan = now
+				scanCache = getCanPlantsInRange(radius)
+				scanIndex = 1
+			end
+			if #scanCache == 0 then
+				return
+			end
 
 			local toolName = state.Values.SelectedEggTool
 			local tool = findToolByName(toolName)
@@ -183,7 +202,11 @@ local function EggTab(deps)
 			end
 			equipSelectedEgg()
 
-			local canPlant = getNearestCanPlant(80)
+			local canPlant = scanCache[scanIndex]
+			scanIndex += 1
+			if scanIndex > #scanCache then
+				scanIndex = 1
+			end
 			if not canPlant then
 				return
 			end
