@@ -90,6 +90,17 @@ local function DebugTab(deps)
 		return table.concat(out, "\n")
 	end
 
+	local function truncateText(text, maxChars)
+		maxChars = maxChars or 180000
+		if type(text) ~= "string" then
+			return ""
+		end
+		if #text <= maxChars then
+			return text
+		end
+		return text:sub(1, maxChars) .. "\n... (truncated: maxChars reached)"
+	end
+
 	local dumpPanel = Instance.new("Frame")
 	dumpPanel.Name = "DumpPanel"
 	dumpPanel.Size = UDim2.new(1, 0, 0, 260)
@@ -131,14 +142,30 @@ local function DebugTab(deps)
 		parts[#parts + 1] = serializeValue(Config, 0)
 		parts[#parts + 1] = ""
 		parts[#parts + 1] = "-- Instance Tree: " .. selectedTarget
-		local root
-		if selectedTarget == "ReplicatedStorage" then
-			root = game:GetService("ReplicatedStorage")
+		local okDump, treeOrErr = pcall(function()
+			local root
+			if selectedTarget == "ReplicatedStorage" then
+				root = game:GetService("ReplicatedStorage")
+			else
+				root = workspace
+			end
+
+			local maxDepth = 6
+			local maxNodes = 2500
+			if selectedTarget == "ReplicatedStorage" then
+				maxNodes = 1800
+			end
+			return dumpInstanceTree(root, maxDepth, maxNodes)
+		end)
+
+		if okDump then
+			parts[#parts + 1] = treeOrErr
 		else
-			root = workspace
+			parts[#parts + 1] = "[ERROR] dump failed: " .. tostring(treeOrErr)
 		end
-		parts[#parts + 1] = dumpInstanceTree(root, 6, 2500)
-		return table.concat(parts, "\n")
+
+		local text = table.concat(parts, "\n")
+		return truncateText(text, 180000)
 	end
 
 	local dumpBtn = elements.Button("Dump", function()
