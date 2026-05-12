@@ -193,7 +193,7 @@ local function DebugTab(deps)
 	themeService:Bind(dumpScroll, "ScrollBarImageColor3", "Accent")
 	dumpScroll.Parent = dumpPanel
 
-	local dumpText = Instance.new("TextLabel")
+	local dumpText = Instance.new("TextBox")
 	dumpText.Name = "DumpText"
 	dumpText.Size = UDim2.new(1, -8, 0, 0)
 	dumpText.Position = UDim2.new(0, 4, 0, 4)
@@ -207,6 +207,9 @@ local function DebugTab(deps)
 	dumpText.TextColor3 = T().Text
 	themeService:Bind(dumpText, "TextColor3", "Text")
 	dumpText.AutomaticSize = Enum.AutomaticSize.Y
+	dumpText.ClearTextOnFocus = false
+	dumpText.MultiLine = true
+	dumpText.TextEditable = false
 	dumpText.Text = ""
 	dumpText.Parent = dumpScroll
 
