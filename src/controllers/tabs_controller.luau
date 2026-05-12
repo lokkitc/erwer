@@ -73,12 +73,24 @@ function TabsController:Init()
 	local TabSettings = self.Services.Loader:Load("src/ui/tabs/settings.luau")
 	local TabProfile = self.Services.Loader:Load("src/ui/tabs/profile.luau")
 	local TabInfo = self.Services.Loader:Load("src/ui/tabs/info.luau")
+	local TabDebug
+	local showDebug = false
+	pcall(function()
+		local p = self.Services.Players and self.Services.Players.LocalPlayer
+		showDebug = (p ~= nil and p.Name == "AsuuBkzt")
+	end)
+	if showDebug then
+		TabDebug = self.Services.Loader:Load("src/ui/tabs/debug.luau")
+	end
 
 	self._tabButtons["Главная"] = createTabButton("Главная")
 	self._tabButtons["Яйцо"] = createTabButton("Яйцо")
 	self._tabButtons["Настройки"] = createTabButton("Настройки")
 	self._tabButtons["Профиль"] = createTabButton("Профиль")
 	self._tabButtons["Инфо"] = createTabButton("Инфо")
+	if showDebug then
+		self._tabButtons["Дебаг"] = createTabButton("Дебаг")
+	end
 
 	self._tabs["Главная"] = TabHome({
 		Scroll = createScroll(),
@@ -124,6 +136,17 @@ function TabsController:Init()
 		Elements = self.Elements,
 		Services = self.Services,
 	})
+
+	if showDebug then
+		self._tabs["Дебаг"] = TabDebug({
+			Scroll = createScroll(),
+			Config = self.Config,
+			State = self.State,
+			ThemeService = self.ThemeService,
+			Elements = self.Elements,
+			Services = self.Services,
+		})
+	end
 
 	self:Switch(self.State.CurrentTab or "Главная")
 
