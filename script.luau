@@ -11,7 +11,7 @@ if URL_BASE == "https://raw.githubusercontent.com/your-username/your-repo-name/m
     error("Set URL_BASE to your GitHub raw base, ending with a slash")
 end
 
-local function httpGet(url)
+local function safeHttpGet(url)
     local ok, res = pcall(function()
         return game:HttpGet(url)
     end)
@@ -21,80 +21,66 @@ local function httpGet(url)
     return res, nil
 end
 
-local function loadChunk(name, source)
-    local fn, err = loadstring(source)
-    if not fn then
-        return nil, ("loadstring failed for %s: %s"):format(name, tostring(err))
-    end
-    return fn, nil
+local remoteLoaderSrc, rlErr = safeHttpGet(URL_BASE .. "src/lib/remote_loader.luau?cb=" .. HttpService:GenerateGUID(false))
+if not remoteLoaderSrc then
+    warn("[BekezatLoader] HttpGet RemoteLoader failed:", rlErr)
+    return
 end
 
-local function tryCreateLogger()
-    local loggerUrl = URL_BASE .. "LoaderLogger.luau?cb=" .. HttpService:GenerateGUID(false)
-    local src, err = httpGet(loggerUrl)
-    if not src then
-        warn("[BekezatLoader] Logger HttpGet failed:", err)
-        return function(msg)
-            print("[BekezatLoader]", msg)
-        end, function() end
-    end
-
-    local chunk, loadErr = loadChunk("LoaderLogger", src)
-    if not chunk then
-        warn("[BekezatLoader] Logger loadstring failed:", loadErr)
-        return function(msg)
-            print("[BekezatLoader]", msg)
-        end, function() end
-    end
-
-    local okRun, factoryOrErr = pcall(chunk)
-    if not okRun or type(factoryOrErr) ~= "function" then
-        warn("[BekezatLoader] Logger init failed:", factoryOrErr)
-        return function(msg)
-            print("[BekezatLoader]", msg)
-        end, function() end
-    end
-
-    local okCreate, logFn, destroyFn = pcall(factoryOrErr)
-    if not okCreate or type(logFn) ~= "function" then
-        warn("[BekezatLoader] Logger create failed:", logFn)
-        return function(msg)
-            print("[BekezatLoader]", msg)
-        end, function() end
-    end
-
-    return logFn, (type(destroyFn) == "function" and destroyFn or function() end)
+local RemoteLoaderFn, rlLoadErr = loadstring(remoteLoaderSrc)
+if not RemoteLoaderFn then
+    warn("[BekezatLoader] loadstring RemoteLoader failed:", rlLoadErr)
+    return
 end
 
-local log, destroyLog = tryCreateLogger()
+local okRL, RemoteLoader = pcall(RemoteLoaderFn)
+if not okRL or type(RemoteLoader) ~= "table" then
+    warn("[BekezatLoader] RemoteLoader init failed:", RemoteLoader)
+    return
+end
+
+local loader = RemoteLoader.new(URL_BASE, HttpService, function(url)
+    return game:HttpGet(url)
+end)
+
+local function fallbackLog(msg)
+    print("[BekezatLoader]", msg)
+end
+
+local log = fallbackLog
+local destroyLog = function() end
+
+do
+    local loggerFactory, loggerErr = loader:Load("src/ui/logger/loader_logger.luau", true)
+    if type(loggerFactory) == "function" then
+        local okCreate, l, d = pcall(loggerFactory)
+        if okCreate and type(l) == "function" then
+            log = l
+            destroyLog = (type(d) == "function" and d or destroyLog)
+        end
+    else
+        warn("[BekezatLoader] Logger load failed:", loggerErr)
+    end
+end
+
 log("init")
 
-local mainUrl = URL_BASE .. "Main.luau?cb=" .. HttpService:GenerateGUID(false)
-log("httpget Main")
-log(mainUrl)
-
-local mainSrc, mainErr = httpGet(mainUrl)
-if not mainSrc then
-    log("HttpGet failed")
+local mainChunk, mainErr = loader:Load("src/app/main.luau", true)
+if type(mainChunk) ~= "function" then
+    log("Main load failed")
     log(mainErr)
     return
 end
 
-log("loadstring Main")
-local mainChunk, mainLoadErr = loadChunk("Main", mainSrc)
-if not mainChunk then
-	log(mainLoadErr)
-	return
-end
-
 log("run Main")
 local okRun, runErr = pcall(function()
-	mainChunk(URL_BASE)
+    mainChunk(URL_BASE)
 end)
+
 if not okRun then
-	log("Main crashed")
-	log(runErr)
-	return
+    log("Main crashed")
+    log(runErr)
+    return
 end
 
 log("done")

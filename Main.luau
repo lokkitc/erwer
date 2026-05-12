@@ -39,6 +39,28 @@ local function GetTheme()
 	return Config.Theme.Dark
 end
 
+local themeBindings = {}
+
+local function BindTheme(inst, prop, key)
+	themeBindings[#themeBindings + 1] = {
+		Inst = inst,
+		Prop = prop,
+		Key = key,
+	}
+end
+
+local function ApplyTheme()
+	local t = GetTheme()
+	for i = #themeBindings, 1, -1 do
+		local b = themeBindings[i]
+		if not b.Inst or not b.Inst.Parent then
+			table.remove(themeBindings, i)
+		else
+			b.Inst[b.Prop] = t[b.Key]
+		end
+	end
+end
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "BekezatUI"
 gui.ResetOnSpawn = false
@@ -72,16 +94,21 @@ local Elements = CreateUIElements({
 	Services = services,
 	GetEggTools = GetEggTools,
 	GetTheme = GetTheme,
+	BindTheme = BindTheme,
 })
 
 local L = Config.Layout
+local function T()
+	return GetTheme()
+end
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainWindow"
 mainFrame.Size = Config.Window.InitialSize
 mainFrame.Position = UDim2.fromScale(0.5, 0.5)
 mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.BackgroundColor3 = Config.Theme.Dark.Glass
+mainFrame.BackgroundColor3 = T().Glass
+BindTheme(mainFrame, "BackgroundColor3", "Glass")
 mainFrame.BackgroundTransparency = 0.22
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = gui
@@ -92,7 +119,8 @@ uiCorner.Parent = mainFrame
 
 local uiStroke = Instance.new("UIStroke")
 uiStroke.Thickness = L.WindowStroke
-uiStroke.Color = Config.Theme.Dark.Stroke
+uiStroke.Color = T().Stroke
+BindTheme(uiStroke, "Color", "Stroke")
 uiStroke.Transparency = 0.55
 uiStroke.Parent = mainFrame
 
@@ -123,7 +151,8 @@ titleLabel.Size = UDim2.new(1, -140, 1, 0)
 titleLabel.Position = UDim2.new(0, L.IconSize + 14, 0, 0)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Text = Config.Window.Title .. " <font color='#881798'>" .. Config.Window.Version .. "</font>"
-titleLabel.TextColor3 = Config.Theme.Dark.Text
+titleLabel.TextColor3 = T().Text
+BindTheme(titleLabel, "TextColor3", "Text")
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.RichText = true
 titleLabel.Font = L.FontTitle
@@ -219,10 +248,11 @@ local function LoadState()
 	end
 end
 
-local closeBtn = createControlButton("×", Config.Theme.Dark.Danger, function()
+local closeBtn = createControlButton("×", T().Danger, function()
 	SaveState()
 	gui:Destroy()
 end)
+BindTheme(closeBtn, "BackgroundColor3", "Danger")
 closeBtn.Position = UDim2.new(1, -2, 0.5, 0)
 closeBtn.AnchorPoint = Vector2.new(1, 0.5)
 
@@ -251,7 +281,8 @@ local sidebar = Instance.new("Frame")
 sidebar.Name = "Sidebar"
 sidebar.Size = UDim2.new(0, L.SidebarWidth, 1, -L.TitleBarHeight)
 sidebar.Position = UDim2.new(0, 0, 0, L.TitleBarHeight)
-sidebar.BackgroundColor3 = Config.Theme.Dark.Bg
+sidebar.BackgroundColor3 = T().Bg
+BindTheme(sidebar, "BackgroundColor3", "Bg")
 sidebar.BackgroundTransparency = 1
 sidebar.BorderSizePixel = 0
 sidebar.Parent = mainFrame
@@ -272,7 +303,8 @@ local indicator = Instance.new("Frame")
 indicator.Name = "Indicator"
 indicator.Size = UDim2.new(0, L.IndicatorWidth, 0, L.IndicatorHeight)
 indicator.Position = UDim2.new(0, 0, 0, L.TitleBarHeight + L.SidebarPaddingTop)
-indicator.BackgroundColor3 = Config.Theme.Dark.Accent
+indicator.BackgroundColor3 = T().Accent
+BindTheme(indicator, "BackgroundColor3", "Accent")
 indicator.BorderSizePixel = 0
 indicator.ZIndex = 2
 indicator.Parent = mainFrame
@@ -286,7 +318,8 @@ local indicatorSpring = Spring.new(L.TitleBarHeight + L.SidebarPaddingTop, Confi
 local sidebarDivider = Instance.new("Frame")
 sidebarDivider.Size = UDim2.new(0, 1, 1, -L.TitleBarHeight)
 sidebarDivider.Position = UDim2.new(0, L.SidebarWidth, 0, L.TitleBarHeight)
-sidebarDivider.BackgroundColor3 = Config.Theme.Dark.Stroke
+sidebarDivider.BackgroundColor3 = T().Stroke
+BindTheme(sidebarDivider, "BackgroundColor3", "Stroke")
 sidebarDivider.BackgroundTransparency = 0.4
 sidebarDivider.BorderSizePixel = 0
 sidebarDivider.Parent = mainFrame
@@ -307,8 +340,9 @@ local function SwitchTab(tabName)
 		frame.Visible = name == tabName
 	end
 	for name, btn in pairs(tabButtons) do
-		btn.TextColor3 = (name == tabName) and Config.Theme.Dark.Text or Config.Theme.Dark.TextSecondary
+		btn.TextColor3 = (name == tabName) and T().Text or T().TextSecondary
 	end
+	ApplyTheme()
 	local btn = tabButtons[tabName]
 	if btn then
 		local targetY = btn.AbsolutePosition.Y - mainFrame.AbsolutePosition.Y + (btn.AbsoluteSize.Y - L.IndicatorHeight) / 2
@@ -321,7 +355,8 @@ local function createTabButton(name)
 	btn.Size = UDim2.new(1, 0, 0, L.SidebarBtnHeight)
 	btn.BackgroundTransparency = 1
 	btn.Text = name
-	btn.TextColor3 = Config.Theme.Dark.TextSecondary
+	btn.TextColor3 = T().TextSecondary
+	BindTheme(btn, "TextColor3", "TextSecondary")
 	btn.Font = L.FontTab
 	btn.TextSize = L.TextTab
 	btn.TextXAlignment = Enum.TextXAlignment.Left
@@ -333,12 +368,12 @@ local function createTabButton(name)
 
 	btn.MouseEnter:Connect(function()
 		if State.CurrentTab ~= name then
-			btn.TextColor3 = Config.Theme.Dark.Text
+			btn.TextColor3 = T().Text
 		end
 	end)
 	btn.MouseLeave:Connect(function()
 		if State.CurrentTab ~= name then
-			btn.TextColor3 = Config.Theme.Dark.TextSecondary
+			btn.TextColor3 = T().TextSecondary
 		end
 	end)
 	btn.MouseButton1Click:Connect(function()
@@ -353,7 +388,8 @@ local function CreateTabContent(tabName)
 	scroll.Size = UDim2.fromScale(1, 1)
 	scroll.BackgroundTransparency = 1
 	scroll.ScrollBarThickness = L.ScrollBarThickness
-	scroll.ScrollBarImageColor3 = Config.Theme.Dark.Accent
+	scroll.ScrollBarImageColor3 = T().Accent
+	BindTheme(scroll, "ScrollBarImageColor3", "Accent")
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.Visible = false
 	scroll.Parent = content
@@ -406,6 +442,13 @@ local function CreateTabContent(tabName)
 			end
 		end)
 
+	elseif tabName == "Настройки" then
+		local themeList = {"Dark", "Light"}
+		local themeDropdown = Elements.Dropdown("Тема", themeList, State.Values.ThemeName or "Dark", function(v)
+			State.Values.ThemeName = v
+			ApplyTheme()
+		end)
+		themeDropdown.Parent = scroll
 	elseif tabName == "Профиль" then
 		local ud = State.UserData
 		local profileRow = Instance.new("Frame")
@@ -428,7 +471,8 @@ local function CreateTabContent(tabName)
 		nameLbl.Position = UDim2.new(0, L.AvatarSize + 12, 0, (L.AvatarSize - L.ProfileRowHeight) / 2)
 		nameLbl.BackgroundTransparency = 1
 		nameLbl.Text = ud.DisplayName .. "\n@" .. ud.Username
-		nameLbl.TextColor3 = Config.Theme.Dark.Text
+		nameLbl.TextColor3 = T().Text
+		BindTheme(nameLbl, "TextColor3", "Text")
 		nameLbl.TextXAlignment = Enum.TextXAlignment.Left
 		nameLbl.TextYAlignment = Enum.TextYAlignment.Center
 		nameLbl.Font = L.FontTab
@@ -457,6 +501,7 @@ local function CreateTabContent(tabName)
 			row.TextXAlignment = Enum.TextXAlignment.Left
 			row.Font = L.FontBody
 			row.TextSize = 12
+			BindTheme(row, "TextColor3", "Text")
 			row.Parent = scroll
 		end
 	elseif tabName == "Инфо" then
@@ -464,7 +509,8 @@ local function CreateTabContent(tabName)
 		info.Size = UDim2.new(1, 0, 0, L.InfoHeight)
 		info.BackgroundTransparency = 1
 		info.Text = "Bekezat Erdos Bot"
-		info.TextColor3 = Config.Theme.Dark.TextSecondary
+		info.TextColor3 = T().TextSecondary
+		BindTheme(info, "TextColor3", "TextSecondary")
 		info.TextWrapped = true
 		info.Font = L.FontBody
 		info.TextSize = L.TextInfo
@@ -485,6 +531,7 @@ tabs["Профиль"] = CreateTabContent("Профиль")
 tabs["Инфо"] = CreateTabContent("Инфо")
 
 SwitchTab("Главная")
+ApplyTheme()
 
 local dragStart = Vector2.new()
 local frameStart = UDim2.new()

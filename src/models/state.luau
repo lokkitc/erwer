@@ -4,17 +4,16 @@ local function CreateState(config)
 		Dragging = false,
 		Resizing = false,
 		CurrentTab = "Главная",
-		Theme = config.Theme.Dark,
-		Springs = {},
 		Destroyed = false,
 		Values = {
 			Volume = 75,
 			MusicEnabled = true,
 			SelectedMode = "Normal",
-			Nickname = "Тенте",
+			Nickname = "AsuuBkzt",
 			ThemeName = "Dark",
 		},
 		UserData = {},
+		Config = config,
 	}
 end
 
