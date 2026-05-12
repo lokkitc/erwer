@@ -12,6 +12,8 @@ local function CreateState(config)
 			Nickname = "AsuuBkzt",
 			SelectedEggTool = "",
 			AutoPlaceEgg = false,
+			AutoPlaceMode = "Mouse",
+			AutoHatchEgg = false,
 			ThemeName = "Dark",
 		},
 		UserData = {},

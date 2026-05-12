@@ -24,7 +24,6 @@ local function Main(urlBase)
 
 	local CreateElements = loader:Load("src/ui/components/elements.luau")
 	local CreateRootWindow = loader:Load("src/ui/layout/root_window.luau")
-	local CreateConsole = loader:Load("src/ui/logger/console.luau")
 
 	local TabsController = loader:Load("src/controllers/tabs_controller.luau")
 	local WindowController = loader:Load("src/controllers/window_controller.luau")
@@ -66,29 +65,6 @@ local function Main(urlBase)
 		Elements = elements,
 		Services = services,
 	})
-
-	local console = CreateConsole({
-		Gui = gui,
-		Config = Config,
-		ThemeService = themeService,
-		Services = services,
-	})
-	services.Console = console
-	pcall(function()
-		local ok = console:EnableRemoteSpy()
-		if not ok then
-			console:Log("WARN", "RemoteSpy not available")
-		end
-	end)
-
-	UserInputService.InputBegan:Connect(function(input, gpe)
-		if gpe then
-			return
-		end
-		if input.KeyCode == Enum.KeyCode.RightShift then
-			console:Toggle()
-		end
-	end)
 
 	local windowController = WindowController.new({
 		Config = Config,

@@ -80,46 +80,80 @@ local function EggTab(deps)
 		humanoid:EquipTool(tool)
 	end
 
-	local function getCanPlantsInRange(maxDist)
-		maxDist = maxDist or 35
+	local function getNearestCanPlant(maxDist)
+		maxDist = maxDist or 80
 		local character = player.Character
 		if not character then
-			return {}
+			return nil
 		end
 		local hrp = character:FindFirstChild("HumanoidRootPart")
 		if not hrp or not hrp:IsA("BasePart") then
-			return {}
+			return nil
 		end
 		local pl = workspace:FindFirstChild("Farm")
 		if not pl then
-			return {}
+			return nil
 		end
 		local farm = pl:FindFirstChild("Farm")
 		if not farm then
-			return {}
+			return nil
 		end
 		local important = farm:FindFirstChild("Important")
 		if not important then
-			return {}
+			return nil
 		end
 		local loc = important:FindFirstChild("Plant_Locations")
 		if not loc then
-			return {}
+			return nil
 		end
 
-		local list = {}
+		local best
+		local bestD = maxDist
 		for _, obj in ipairs(loc:GetChildren()) do
 			if obj.Name == "Can_Plant" and obj:IsA("BasePart") then
 				local d = (obj.Position - hrp.Position).Magnitude
-				if d <= maxDist then
-					list[#list + 1] = obj
+				if d < bestD then
+					bestD = d
+					best = obj
 				end
 			end
 		end
-		table.sort(list, function(a, b)
-			return a.Name < b.Name
-		end)
-		return list
+		return best
+	end
+
+	local function resolveFarmRoot()
+		local farmFolder = workspace:FindFirstChild("Farm")
+		if not farmFolder then
+			return nil
+		end
+
+		local function isMine(farmModel)
+			local important = farmModel:FindFirstChild("Important")
+			local data = important and important:FindFirstChild("Data")
+			local owner = data and data:FindFirstChild("Owner")
+			if owner and owner:IsA("StringValue") and owner.Value ~= "" then
+				return owner.Value == player.Name
+			end
+			return nil
+		end
+
+		local direct = farmFolder:FindFirstChild("Farm")
+		if direct and direct:IsA("Model") then
+			local mine = isMine(direct)
+			if mine == true or mine == nil then
+				return direct
+			end
+		end
+
+		for _, child in ipairs(farmFolder:GetChildren()) do
+			if child:IsA("Model") then
+				local mine = isMine(child)
+				if mine == true then
+					return child
+				end
+			end
+		end
+		return direct
 	end
 
 	local function tryPlaceWithRemotes(toolName, canPlant)
@@ -156,11 +190,135 @@ local function EggTab(deps)
 		return ok
 	end
 
+	local function tryPlaceAt(toolName, pos, cf)
+		local rs = game:GetService("ReplicatedStorage")
+		local ge = rs:FindFirstChild("GameEvents")
+		if not ge then
+			return false
+		end
+		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
+		local r2 = ge:FindFirstChild("TryUseGear")
+
+		local function fire(remote, ...)
+			if remote and remote:IsA("RemoteEvent") then
+				remote:FireServer(...)
+				return true
+			end
+			return false
+		end
+
+		local ok = false
+		pcall(function()
+			if not cf then
+				cf = CFrame.new(pos)
+			end
+			ok = fire(r1, toolName, pos)
+			or fire(r1, toolName, cf)
+			or fire(r1, pos, toolName)
+			or fire(r1, cf, toolName)
+			or fire(r2, toolName, pos)
+			or fire(r2, toolName, cf)
+			or fire(r2, pos, toolName)
+			or fire(r2, cf, toolName)
+		end)
+		return ok
+	end
+
+	local function spamClick()
+		pcall(function()
+			local fn = rawget(_G, "mouse1click") or rawget(_G, "mouse1press") or rawget(_G, "mouse1")
+			if type(fn) == "function" then
+				fn()
+			end
+		end)
+		pcall(function()
+			local uis = game:GetService("UserInputService")
+			local vim = game:GetService("VirtualInputManager")
+			if uis and vim and vim.SendMouseButtonEvent then
+				local mouseLocation = uis:GetMouseLocation()
+				vim:SendMouseButtonEvent(mouseLocation.X, mouseLocation.Y, 0, true, game, 0)
+				vim:SendMouseButtonEvent(mouseLocation.X, mouseLocation.Y, 0, false, game, 0)
+			end
+		end)
+	end
+
+	local function viewportClickAt(worldPos)
+		local ok = false
+		pcall(function()
+			local cam = workspace.CurrentCamera
+			if not cam then
+				return
+			end
+			local v2, onScreen = cam:WorldToViewportPoint(worldPos)
+			if not onScreen then
+				return
+			end
+			local vim = game:GetService("VirtualInputManager")
+			if vim and vim.SendMouseButtonEvent then
+				vim:SendMouseButtonEvent(v2.X, v2.Y, 0, true, game, 0)
+				vim:SendMouseButtonEvent(v2.X, v2.Y, 0, false, game, 0)
+				ok = true
+			end
+		end)
+		return ok
+	end
+
+	local function tryHatchNearestEgg(maxDist)
+		maxDist = maxDist or 30
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		if not hrp or not hrp:IsA("BasePart") then
+			return false
+		end
+
+		local farm = resolveFarmRoot()
+		local important = farm and farm:FindFirstChild("Important")
+		local obj = important and important:FindFirstChild("Objects_Physical")
+		if not obj then
+			return false
+		end
+		local petEgg = obj:FindFirstChild("PetEgg")
+		if not petEgg then
+			return false
+		end
+
+		local bestPrompt
+		local bestD = maxDist
+		for _, d in ipairs(petEgg:GetDescendants()) do
+			if d:IsA("ProximityPrompt") then
+				local txt = (d.ActionText or "") .. " " .. (d.ObjectText or "")
+				txt = string.lower(txt)
+				if string.find(txt, "hatch") then
+					local part = d.Parent
+					if part and part:IsA("BasePart") then
+						local dist = (part.Position - hrp.Position).Magnitude
+						if dist < bestD then
+							bestD = dist
+							bestPrompt = d
+						end
+					end
+				end
+			end
+		end
+
+		if not bestPrompt then
+			return false
+		end
+
+		local did = false
+		pcall(function()
+			local fn = rawget(_G, "fireproximityprompt")
+			if type(fn) == "function" then
+				fn(bestPrompt)
+				did = true
+			end
+		end)
+		return did
+	end
+
 	local autoConn
 	local lastPlace = 0
-	local lastScan = 0
-	local scanCache = {}
-	local scanIndex = 1
+	local ringIndex = 0
 	local function setAutoPlace(on)
 		if autoConn then
 			autoConn:Disconnect()
@@ -170,30 +328,16 @@ local function EggTab(deps)
 			return
 		end
 		lastPlace = 0
-		lastScan = 0
-		scanCache = {}
-		scanIndex = 1
+		ringIndex = 0
 		autoConn = RunService.Heartbeat:Connect(function()
 			if not state.Values.AutoPlaceEgg then
 				return
 			end
 			local now = os.clock()
-			local spamDelay = 0.08
-			if now - lastPlace < spamDelay then
+			if now - lastPlace < 0.35 then
 				return
 			end
 			lastPlace = now
-
-			local scanDelay = 0.6
-			local radius = 35
-			if now - lastScan > scanDelay or #scanCache == 0 then
-				lastScan = now
-				scanCache = getCanPlantsInRange(radius)
-				scanIndex = 1
-			end
-			if #scanCache == 0 then
-				return
-			end
 
 			local toolName = state.Values.SelectedEggTool
 			local tool = findToolByName(toolName)
@@ -202,21 +346,56 @@ local function EggTab(deps)
 			end
 			equipSelectedEgg()
 
-			local canPlant = scanCache[scanIndex]
-			scanIndex += 1
-			if scanIndex > #scanCache then
-				scanIndex = 1
-			end
-			if not canPlant then
+			local character = player.Character
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			if not hrp or not hrp:IsA("BasePart") then
 				return
 			end
 
-			local fired = tryPlaceWithRemotes(toolName, canPlant)
+			ringIndex += 1
+			local radius = 10
+			local steps = 10
+			local angle = (ringIndex % steps) / steps * math.pi * 2
+			local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+			local pos = hrp.Position + offset
+			local cf = CFrame.new(pos)
+
+			local fired = false
+			if state.Values.AutoPlaceMode == "ViewportRing" then
+				fired = viewportClickAt(pos)
+			else
+				fired = tryPlaceAt(toolName, pos, cf)
+			end
 			if not fired then
 				pcall(function()
 					tool:Activate()
 				end)
+				spamClick()
 			end
+		end)
+	end
+
+	local hatchConn
+	local lastHatch = 0
+	local function setAutoHatch(on)
+		if hatchConn then
+			hatchConn:Disconnect()
+			hatchConn = nil
+		end
+		if not on then
+			return
+		end
+		lastHatch = 0
+		hatchConn = RunService.Heartbeat:Connect(function()
+			if not state.Values.AutoHatchEgg then
+				return
+			end
+			local now = os.clock()
+			if now - lastHatch < 0.6 then
+				return
+			end
+			lastHatch = now
+			tryHatchNearestEgg(30)
 		end)
 	end
 
@@ -239,6 +418,17 @@ local function EggTab(deps)
 	end)
 	eggDropdown.Parent = scroll
 
+	local placeModes = { "Mouse", "ViewportRing" }
+	local modeDefault = state.Values.AutoPlaceMode or "Mouse"
+	if not table.find(placeModes, modeDefault) then
+		modeDefault = "Mouse"
+		state.Values.AutoPlaceMode = modeDefault
+	end
+	local modeDropdown = elements.Dropdown("AutoPlace Mode", placeModes, modeDefault, function(v)
+		state.Values.AutoPlaceMode = v
+	end)
+	modeDropdown.Parent = scroll
+
 	local autoToggle = elements.Toggle("Auto Place Egg", state.Values.AutoPlaceEgg, function(v)
 		state.Values.AutoPlaceEgg = v
 		if v then
@@ -247,6 +437,12 @@ local function EggTab(deps)
 		setAutoPlace(v)
 	end)
 	autoToggle.Parent = scroll
+
+	local hatchToggle = elements.Toggle("Auto Hatch Egg", state.Values.AutoHatchEgg, function(v)
+		state.Values.AutoHatchEgg = v
+		setAutoHatch(v)
+	end)
+	hatchToggle.Parent = scroll
 
 	local equipBtn = elements.Button("Взять яйцо в руки", function()
 		equipSelectedEgg()
