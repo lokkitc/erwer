@@ -90,6 +90,73 @@ local function DebugTab(deps)
 		return table.concat(out, "\n")
 	end
 
+	local function safeGet(path)
+		local cur = game
+		for _, seg in ipairs(path) do
+			if cur == nil then
+				return nil
+			end
+			cur = cur:FindFirstChild(seg)
+		end
+		return cur
+	end
+
+	local function scanCanPlant()
+		local out = {}
+		out[#out + 1] = "-- Scan: Can_Plant"
+		local farm = safeGet({ "Workspace", "Farm", "Farm", "Important", "Plant_Locations" })
+		if not farm then
+			out[#out + 1] = "[WARN] Workspace/Farm/Farm/Important/Plant_Locations not found"
+			return table.concat(out, "\n")
+		end
+
+		local foundAny = false
+		for _, obj in ipairs(farm:GetChildren()) do
+			if obj.Name == "Can_Plant" and obj:IsA("BasePart") then
+				foundAny = true
+				out[#out + 1] = obj:GetFullName() .. " [" .. obj.ClassName .. "]"
+				for _, d in ipairs(obj:GetDescendants()) do
+					if d:IsA("ProximityPrompt") or d:IsA("ClickDetector") then
+						out[#out + 1] = "  " .. d.ClassName .. ": " .. d:GetFullName()
+					end
+				end
+			end
+		end
+		if not foundAny then
+			out[#out + 1] = "[WARN] No BasePart named 'Can_Plant' under Plant_Locations"
+		end
+		return table.concat(out, "\n")
+	end
+
+	local function scanReplicatedRemotes(maxItems)
+		maxItems = maxItems or 250
+		local out = {}
+		out[#out + 1] = "-- Scan: ReplicatedStorage Remotes"
+		local ok, rs = pcall(function()
+			return game:GetService("ReplicatedStorage")
+		end)
+		if not ok or not rs then
+			out[#out + 1] = "[ERROR] ReplicatedStorage unavailable"
+			return table.concat(out, "\n")
+		end
+
+		local count = 0
+		for _, d in ipairs(rs:GetDescendants()) do
+			if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+				count += 1
+				out[#out + 1] = "[" .. d.ClassName .. "] " .. d:GetFullName()
+				if count >= maxItems then
+					out[#out + 1] = "... (truncated: max remotes reached)"
+					break
+				end
+			end
+		end
+		if count == 0 then
+			out[#out + 1] = "[INFO] No RemoteEvent/RemoteFunction found (may be truncated by game structure)"
+		end
+		return table.concat(out, "\n")
+	end
+
 	local function truncateText(text, maxChars)
 		maxChars = maxChars or 180000
 		if type(text) ~= "string" then
@@ -108,25 +175,54 @@ local function DebugTab(deps)
 	themeService:Bind(dumpPanel, "BackgroundColor3", "Glass")
 	dumpPanel.BackgroundTransparency = 0.08
 	dumpPanel.BorderSizePixel = 0
+	dumpPanel.ClipsDescendants = true
 	dumpPanel.Visible = false
 	dumpPanel.Parent = scroll
 	Instance.new("UICorner", dumpPanel).CornerRadius = UDim.new(0, 10)
 
-	local dumpBox = Instance.new("TextBox")
-	dumpBox.Size = UDim2.new(1, -12, 1, -12)
-	dumpBox.Position = UDim2.new(0, 6, 0, 6)
-	dumpBox.BackgroundTransparency = 1
-	dumpBox.TextXAlignment = Enum.TextXAlignment.Left
-	dumpBox.TextYAlignment = Enum.TextYAlignment.Top
-	dumpBox.ClearTextOnFocus = false
-	dumpBox.MultiLine = true
-	dumpBox.TextEditable = false
-	dumpBox.Font = Enum.Font.Code
-	dumpBox.TextSize = 14
-	dumpBox.TextColor3 = T().Text
-	themeService:Bind(dumpBox, "TextColor3", "Text")
-	dumpBox.Text = ""
-	dumpBox.Parent = dumpPanel
+	local dumpScroll = Instance.new("ScrollingFrame")
+	dumpScroll.Name = "DumpScroll"
+	dumpScroll.Size = UDim2.new(1, -12, 1, -12)
+	dumpScroll.Position = UDim2.new(0, 6, 0, 6)
+	dumpScroll.BackgroundTransparency = 1
+	dumpScroll.BorderSizePixel = 0
+	dumpScroll.CanvasSize = UDim2.fromOffset(0, 0)
+	dumpScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	dumpScroll.ScrollBarThickness = 4
+	dumpScroll.ScrollBarImageColor3 = T().Accent
+	themeService:Bind(dumpScroll, "ScrollBarImageColor3", "Accent")
+	dumpScroll.Parent = dumpPanel
+
+	local dumpText = Instance.new("TextLabel")
+	dumpText.Name = "DumpText"
+	dumpText.Size = UDim2.new(1, -8, 0, 0)
+	dumpText.Position = UDim2.new(0, 4, 0, 4)
+	dumpText.BackgroundTransparency = 1
+	dumpText.TextXAlignment = Enum.TextXAlignment.Left
+	dumpText.TextYAlignment = Enum.TextYAlignment.Top
+	dumpText.TextWrapped = false
+	dumpText.RichText = false
+	dumpText.Font = Enum.Font.Code
+	dumpText.TextSize = 14
+	dumpText.TextColor3 = T().Text
+	themeService:Bind(dumpText, "TextColor3", "Text")
+	dumpText.AutomaticSize = Enum.AutomaticSize.Y
+	dumpText.Text = ""
+	dumpText.Parent = dumpScroll
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingBottom = UDim.new(0, 6)
+	pad.Parent = dumpScroll
+
+	local currentDumpText = ""
+
+	local dumpTypes = { "InstanceTree", "Scans" }
+	local selectedDumpType = dumpTypes[1]
+
+	local dumpTypeDropdown = elements.Dropdown("Тип дампа", dumpTypes, selectedDumpType, function(v)
+		selectedDumpType = v
+	end)
+	dumpTypeDropdown.Parent = scroll
 
 	local targets = { "Workspace", "ReplicatedStorage" }
 	local selectedTarget = targets[1]
@@ -136,11 +232,8 @@ local function DebugTab(deps)
 	end)
 	targetDropdown.Parent = scroll
 
-	local function buildDumpText()
+	local function buildInstanceTreeDump()
 		local parts = {}
-		parts[#parts + 1] = "-- Config"
-		parts[#parts + 1] = serializeValue(Config, 0)
-		parts[#parts + 1] = ""
 		parts[#parts + 1] = "-- Instance Tree: " .. selectedTarget
 		local okDump, treeOrErr = pcall(function()
 			local root
@@ -168,17 +261,33 @@ local function DebugTab(deps)
 		return truncateText(text, 180000)
 	end
 
+	local function buildScansDump()
+		local parts = {}
+		parts[#parts + 1] = scanCanPlant()
+		parts[#parts + 1] = ""
+		parts[#parts + 1] = scanReplicatedRemotes(300)
+		local text = table.concat(parts, "\n")
+		return truncateText(text, 180000)
+	end
+
+	local function buildDumpText()
+		if selectedDumpType == "Scans" then
+			return buildScansDump()
+		end
+		return buildInstanceTreeDump()
+	end
+
 	local dumpBtn = elements.Button("Dump", function()
 		dumpPanel.Visible = not dumpPanel.Visible
 		if dumpPanel.Visible then
-			local text = buildDumpText()
-			dumpBox.Text = text
+			currentDumpText = buildDumpText()
+			dumpText.Text = currentDumpText
 		end
 	end)
 	dumpBtn.Parent = scroll
 
 	local copyBtn = elements.Button("Скопировать", function()
-		local text = dumpBox.Text
+		local text = currentDumpText
 		if type(text) ~= "string" or text == "" then
 			warn("[Debug] Nothing to copy")
 			return
