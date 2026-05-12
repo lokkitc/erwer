@@ -4,6 +4,8 @@ local function EggTab(deps)
 	local elements = deps.Elements
 	local themeService = deps.ThemeService
 	local L = deps.Config.Layout
+	local Services = deps.Services
+	local RunService = Services.RunService
 
 	local Players = game:GetService("Players")
 	local player = Players.LocalPlayer
@@ -78,6 +80,123 @@ local function EggTab(deps)
 		humanoid:EquipTool(tool)
 	end
 
+	local function getNearestCanPlant(maxDist)
+		maxDist = maxDist or 80
+		local character = player.Character
+		if not character then
+			return nil
+		end
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if not hrp or not hrp:IsA("BasePart") then
+			return nil
+		end
+		local pl = workspace:FindFirstChild("Farm")
+		if not pl then
+			return nil
+		end
+		local farm = pl:FindFirstChild("Farm")
+		if not farm then
+			return nil
+		end
+		local important = farm:FindFirstChild("Important")
+		if not important then
+			return nil
+		end
+		local loc = important:FindFirstChild("Plant_Locations")
+		if not loc then
+			return nil
+		end
+
+		local best
+		local bestD = maxDist
+		for _, obj in ipairs(loc:GetChildren()) do
+			if obj.Name == "Can_Plant" and obj:IsA("BasePart") then
+				local d = (obj.Position - hrp.Position).Magnitude
+				if d < bestD then
+					bestD = d
+					best = obj
+				end
+			end
+		end
+		return best
+	end
+
+	local function tryPlaceWithRemotes(toolName, canPlant)
+		local rs = game:GetService("ReplicatedStorage")
+		local ge = rs:FindFirstChild("GameEvents")
+		if not ge then
+			return false
+		end
+
+		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
+		local r2 = ge:FindFirstChild("TryUseGear")
+		local targetPos = canPlant.Position
+		local targetCf = canPlant.CFrame
+
+		local function fire(remote, ...)
+			if remote and remote:IsA("RemoteEvent") then
+				remote:FireServer(...)
+				return true
+			end
+			return false
+		end
+
+		local ok = false
+		pcall(function()
+			ok = fire(r1, toolName, targetPos)
+			or fire(r1, toolName, targetCf)
+			or fire(r1, targetPos, toolName)
+			or fire(r1, targetCf, toolName)
+			or fire(r2, toolName, targetPos)
+			or fire(r2, toolName, targetCf)
+			or fire(r2, targetPos, toolName)
+			or fire(r2, targetCf, toolName)
+		end)
+		return ok
+	end
+
+	local autoConn
+	local lastPlace = 0
+	local function setAutoPlace(on)
+		if autoConn then
+			autoConn:Disconnect()
+			autoConn = nil
+		end
+		if not on then
+			return
+		end
+		lastPlace = 0
+		autoConn = RunService.Heartbeat:Connect(function()
+			if not state.Values.AutoPlaceEgg then
+				return
+			end
+			local now = os.clock()
+			if now - lastPlace < 0.35 then
+				return
+			end
+			lastPlace = now
+
+			local toolName = state.Values.SelectedEggTool
+			local tool = findToolByName(toolName)
+			if not tool then
+				return
+			end
+			equipSelectedEgg()
+
+			local canPlant = getNearestCanPlant(80)
+			if not canPlant then
+				return
+			end
+
+			local fired = tryPlaceWithRemotes(toolName, canPlant)
+			if not fired then
+				pcall(function()
+					tool:Activate()
+				end)
+			end
+		end)
+	end
+
 	local tools = getEggTools()
 	if #tools == 0 then
 		tools = { "Нет Egg tools" }
@@ -102,6 +221,7 @@ local function EggTab(deps)
 		if v then
 			equipSelectedEgg()
 		end
+		setAutoPlace(v)
 	end)
 	autoToggle.Parent = scroll
 
