@@ -85,6 +85,9 @@ local function CreateConsole(deps)
 
 	local maxLines = 200
 	local lines = {}
+	local spyEnabled = false
+	local oldNamecall
+	local hookedMt
 
 	local function addLine(kind, text)
 		local lbl = Instance.new("TextLabel")
@@ -111,6 +114,41 @@ local function CreateConsole(deps)
 
 		Services.RunService.Heartbeat:Wait()
 		scroll.CanvasPosition = Vector2.new(0, math.huge)
+	end
+
+	local function valueToShortString(v)
+		local t = typeof(v)
+		if t == "string" then
+			if #v > 80 then
+				return string.format("%q", v:sub(1, 77) .. "...")
+			end
+			return string.format("%q", v)
+		end
+		if t == "number" or t == "boolean" or t == "nil" then
+			return tostring(v)
+		end
+		if t == "Instance" then
+			return v:GetFullName()
+		end
+		if t == "Vector3" then
+			return string.format("Vector3(%.2f, %.2f, %.2f)", v.X, v.Y, v.Z)
+		end
+		if t == "CFrame" then
+			local p = v.Position
+			return string.format("CFrame(%.2f, %.2f, %.2f)", p.X, p.Y, p.Z)
+		end
+		return "<" .. t .. ">"
+	end
+
+	local function argsToShortString(args)
+		local parts = {}
+		for i = 1, math.min(#args, 8) do
+			parts[#parts + 1] = valueToShortString(args[i])
+		end
+		if #args > 8 then
+			parts[#parts + 1] = "..."
+		end
+		return table.concat(parts, ", ")
 	end
 
 	clearBtn.MouseButton1Click:Connect(function()
@@ -144,6 +182,81 @@ local function CreateConsole(deps)
 
 	function api:Log(kind, text)
 		addLine(kind or "INFO", text)
+	end
+
+	function api:EnableRemoteSpy()
+		if spyEnabled then
+			return true
+		end
+		local getrawmetatableFn = rawget(_G, "getrawmetatable")
+		local setreadonlyFn = rawget(_G, "setreadonly")
+		local hookmetamethodFn = rawget(_G, "hookmetamethod")
+		local getnamecallmethodFn = rawget(_G, "getnamecallmethod")
+		local checkcallerFn = rawget(_G, "checkcaller")
+		local newcclosureFn = rawget(_G, "newcclosure")
+
+		if type(getrawmetatableFn) ~= "function" then
+			addLine("WARN", "RemoteSpy unavailable: getrawmetatable missing")
+			return false
+		end
+		if type(getnamecallmethodFn) ~= "function" then
+			addLine("WARN", "RemoteSpy unavailable: getnamecallmethod missing")
+			return false
+		end
+
+		local ok, err = pcall(function()
+			local mt = getrawmetatableFn(game)
+			hookedMt = mt
+			if type(setreadonlyFn) == "function" then
+				setreadonlyFn(mt, false)
+			end
+
+			local function handler(self, ...)
+				if type(checkcallerFn) == "function" and checkcallerFn() then
+					return oldNamecall(self, ...)
+				end
+
+				local method = getnamecallmethodFn()
+				if method == "FireServer" or method == "InvokeServer" then
+					local cls = typeof(self) == "Instance" and self.ClassName or "?"
+					if cls == "RemoteEvent" or cls == "RemoteFunction" then
+						local args = { ... }
+						addLine("REMOTE", cls .. " " .. self:GetFullName() .. ":" .. method .. "(" .. argsToShortString(args) .. ")")
+					end
+				end
+
+				return oldNamecall(self, ...)
+			end
+
+			if type(hookmetamethodFn) == "function" then
+				oldNamecall = hookmetamethodFn(game, "__namecall", (type(newcclosureFn) == "function" and newcclosureFn(handler) or handler))
+			else
+				oldNamecall = mt.__namecall
+				mt.__namecall = (type(newcclosureFn) == "function" and newcclosureFn(handler) or handler)
+			end
+
+			if type(setreadonlyFn) == "function" then
+				setreadonlyFn(mt, true)
+			end
+		end)
+
+		if not ok then
+			addLine("WARN", "RemoteSpy enable failed: " .. tostring(err))
+			return false
+		end
+
+		spyEnabled = true
+		addLine("INFO", "RemoteSpy enabled")
+		return true
+	end
+
+	function api:DisableRemoteSpy()
+		if not spyEnabled then
+			return true
+		end
+		spyEnabled = false
+		addLine("INFO", "RemoteSpy disabled")
+		return true
 	end
 
 	function api:Destroy()

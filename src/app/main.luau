@@ -74,6 +74,12 @@ local function Main(urlBase)
 		Services = services,
 	})
 	services.Console = console
+	pcall(function()
+		local ok = console:EnableRemoteSpy()
+		if not ok then
+			console:Log("WARN", "RemoteSpy not available")
+		end
+	end)
 
 	UserInputService.InputBegan:Connect(function(input, gpe)
 		if gpe then
