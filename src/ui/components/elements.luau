@@ -76,6 +76,9 @@ local function CreateElements(deps)
 		end)
 
 		task.spawn(function()
+			while not frame.Parent do
+				RunService.Heartbeat:Wait()
+			end
 			while frame.Parent do
 				local dt = RunService.Heartbeat:Wait()
 				local pos = posSpring:Update(dt)
@@ -94,7 +97,7 @@ local function CreateElements(deps)
 		frame.ClipsDescendants = false
 
 		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(1, 0, 1, 0)
+		btn.Size = UDim2.new(1, 0, 0, L.DropdownHeight)
 		btn.BackgroundColor3 = theme().Glass
 		bind(btn, "BackgroundColor3", "Glass")
 		btn.Text = title .. ": " .. default
@@ -109,7 +112,7 @@ local function CreateElements(deps)
 		local listFrame = Instance.new("Frame")
 		listFrame.Name = "List"
 		listFrame.Size = UDim2.new(1, 0, 0, 0)
-		listFrame.Position = UDim2.new(0, 0, 1, 6)
+		listFrame.Position = UDim2.new(0, 0, 0, L.DropdownHeight + 6)
 		listFrame.BackgroundColor3 = theme().Glass
 		bind(listFrame, "BackgroundColor3", "Glass")
 		listFrame.BackgroundTransparency = 0.12
@@ -138,8 +141,9 @@ local function CreateElements(deps)
 		padding.PaddingRight = UDim.new(0, 6)
 		padding.Parent = listFrame
 
-		local currentVal = default
 		local isOpen = false
+		local currentVal = default
+		local listHeight = 0
 
 		local function rebuild()
 			for _, c in ipairs(listFrame:GetChildren()) do
@@ -169,6 +173,7 @@ local function CreateElements(deps)
 					btn.Text = title .. ": " .. tostring(opt)
 					isOpen = false
 					listFrame.Visible = false
+					frame.Size = UDim2.new(1, 0, 0, L.DropdownHeight)
 					callback(opt)
 				end)
 			end
@@ -183,12 +188,15 @@ local function CreateElements(deps)
 			listFrame.Visible = true
 			local items = #options
 			local targetH = math.min(items, 6) * 36 + 12
+			listHeight = targetH
 			listFrame.Size = UDim2.new(1, 0, 0, targetH)
+			frame.Size = UDim2.new(1, 0, 0, L.DropdownHeight + 6 + targetH)
 		end
 
 		local function close()
 			isOpen = false
 			listFrame.Visible = false
+			frame.Size = UDim2.new(1, 0, 0, L.DropdownHeight)
 		end
 
 		btn.MouseButton1Click:Connect(function()
@@ -210,7 +218,7 @@ local function CreateElements(deps)
 				local pos = UserInputService:GetMouseLocation()
 				local absPos = frame.AbsolutePosition
 				local absSize = frame.AbsoluteSize
-				if pos.X < absPos.X or pos.X > absPos.X + absSize.X or pos.Y < absPos.Y or pos.Y > absPos.Y + absSize.Y + listFrame.AbsoluteSize.Y + 12 then
+				if pos.X < absPos.X or pos.X > absPos.X + absSize.X or pos.Y < absPos.Y or pos.Y > absPos.Y + absSize.Y then
 					close()
 				end
 			end

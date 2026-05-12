@@ -72,7 +72,7 @@ function TabsController:Init()
 	local TabInfo = self.Services.Loader:Load("src/ui/tabs/info.luau")
 
 	self._tabButtons["Главная"] = createTabButton("Главная")
-	self._tabButtons["Egg"] = createTabButton("Egg")
+	self._tabButtons["Яйцы"] = createTabButton("Egg")
 	self._tabButtons["Настройки"] = createTabButton("Настройки")
 	self._tabButtons["Профиль"] = createTabButton("Профиль")
 	self._tabButtons["Инфо"] = createTabButton("Инфо")
@@ -86,7 +86,7 @@ function TabsController:Init()
 		Services = self.Services,
 	})
 
-	self._tabs["Egg"] = TabEgg({
+	self._tabs["Яйцы"] = TabEgg({
 		Scroll = createScroll(),
 		Config = self.Config,
 		State = self.State,
