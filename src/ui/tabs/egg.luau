@@ -245,10 +245,15 @@ local function EggTab(deps)
 		local rs = game:GetService("ReplicatedStorage")
 		local ge = rs:FindFirstChild("GameEvents")
 		if not ge then
+			warn("[Egg] ReplicatedStorage.GameEvents not found")
 			return false
 		end
 		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
 		local r2 = ge:FindFirstChild("TryUseGear")
+		if not (r1 or r2) then
+			warn("[Egg] TryUsePlaceableGear/TryUseGear not found under ReplicatedStorage.GameEvents")
+			return false
+		end
 
 		local function fire(remote, ...)
 			if remote and remote:IsA("RemoteEvent") then
@@ -391,8 +396,13 @@ local function EggTab(deps)
 			lastPlace = now
 
 			local toolName = state.Values.SelectedEggTool
+			if not toolName or toolName == "" then
+				warn("[Egg] SelectedEggTool is empty")
+				return
+			end
 			local tool = findToolByName(toolName)
 			if not tool then
+				warn("[Egg] Tool not found:", toolName)
 				return
 			end
 			equipSelectedEgg()
@@ -403,19 +413,29 @@ local function EggTab(deps)
 				return
 			end
 
-			ringIndex += 1
-			local radius = 10
-			local steps = 10
-			local angle = (ringIndex % steps) / steps * math.pi * 2
-			local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-			local rawPos = hrp.Position + offset
-			local pos = getGroundPos(rawPos)
-			local cf = CFrame.new(pos)
+			local fired = false
+			local mode = state.Values.AutoPlaceMode or "Mouse"
 
-			local fired = tryPlaceAt(toolName, pos, cf)
-			if state.Values.AutoPlaceMode == "ViewportRing" then
+			if mode == "Mouse" then
+				local canPlant = getNearestCanPlant(80)
+				if not canPlant then
+					return
+				end
+				fired = tryPlaceWithRemotes(toolName, canPlant)
+				fired = fired or tryPlaceAt(toolName, canPlant.Position, canPlant.CFrame)
+			else
+				ringIndex += 1
+				local radius = 10
+				local steps = 10
+				local angle = (ringIndex % steps) / steps * math.pi * 2
+				local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+				local rawPos = hrp.Position + offset
+				local pos = getGroundPos(rawPos)
+				local cf = CFrame.new(pos)
+				fired = tryPlaceAt(toolName, pos, cf)
 				fired = fired or viewportClickAt(pos)
 			end
+
 			if not fired then
 				pcall(function()
 					tool:Activate()
