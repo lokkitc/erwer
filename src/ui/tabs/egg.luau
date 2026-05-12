@@ -2,9 +2,22 @@ local function EggTab(deps)
 	local scroll = deps.Scroll
 	local state = deps.State
 	local elements = deps.Elements
+	local themeService = deps.ThemeService
+	local L = deps.Config.Layout
 
 	local Players = game:GetService("Players")
 	local player = Players.LocalPlayer
+
+	local header = Instance.new("TextLabel")
+	header.Size = UDim2.new(1, 0, 0, 22)
+	header.BackgroundTransparency = 1
+	header.TextXAlignment = Enum.TextXAlignment.Left
+	header.Text = "Настройки яйца"
+	header.TextColor3 = themeService:GetTheme().TextSecondary
+	themeService:Bind(header, "TextColor3", "TextSecondary")
+	header.Font = L.FontTab
+	header.TextSize = 14
+	header.Parent = scroll
 
 	local function getEggTools()
 		local tools = {}

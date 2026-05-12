@@ -50,6 +50,9 @@ function TabsController:Init()
 		local scroll = Instance.new("ScrollingFrame")
 		scroll.Size = UDim2.fromScale(1, 1)
 		scroll.BackgroundTransparency = 1
+		scroll.CanvasSize = UDim2.fromOffset(0, 0)
+		scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+		scroll.ClipsDescendants = false
 		scroll.ScrollBarThickness = L.ScrollBarThickness
 		scroll.ScrollBarImageColor3 = self.ThemeService:GetTheme().Accent
 		self.ThemeService:Bind(scroll, "ScrollBarImageColor3", "Accent")
