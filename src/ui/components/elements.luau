@@ -66,9 +66,6 @@ local function CreateElements(deps)
 		local function update()
 			local t = theme()
 			toggleBtn.BackgroundColor3 = enabled and t.Accent or t.Stroke
-			if BindTheme then
-				BindTheme(toggleBtn, "BackgroundColor3", enabled and "Accent" or "Stroke")
-			end
 			posSpring:SetTarget(enabled and L.ToggleKnobOn or L.ToggleKnobOff)
 		end
 
@@ -80,9 +77,9 @@ local function CreateElements(deps)
 
 		task.spawn(function()
 			while frame.Parent do
-				local pos = posSpring:Update(1 / 60)
+				local dt = RunService.Heartbeat:Wait()
+				local pos = posSpring:Update(dt)
 				knob.Position = UDim2.new(0, pos, 0.5, 0)
-				RunService.Heartbeat:Wait()
 			end
 		end)
 
@@ -94,6 +91,7 @@ local function CreateElements(deps)
 		local frame = Instance.new("Frame")
 		frame.Size = UDim2.new(1, 0, 0, L.DropdownHeight)
 		frame.BackgroundTransparency = 1
+		frame.ClipsDescendants = false
 
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(1, 0, 1, 0)
@@ -108,12 +106,114 @@ local function CreateElements(deps)
 
 		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, L.DropdownCorner)
 
-		local currentIdx = table.find(options, default) or 1
+		local listFrame = Instance.new("Frame")
+		listFrame.Name = "List"
+		listFrame.Size = UDim2.new(1, 0, 0, 0)
+		listFrame.Position = UDim2.new(0, 0, 1, 6)
+		listFrame.BackgroundColor3 = theme().Glass
+		bind(listFrame, "BackgroundColor3", "Glass")
+		listFrame.BackgroundTransparency = 0.12
+		listFrame.BorderSizePixel = 0
+		listFrame.Visible = false
+		listFrame.Parent = frame
+
+		Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, L.DropdownCorner)
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 1
+		stroke.Transparency = 0.6
+		stroke.Color = theme().Stroke
+		bind(stroke, "Color", "Stroke")
+		stroke.Parent = listFrame
+
+		local layout = Instance.new("UIListLayout")
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Padding = UDim.new(0, 4)
+		layout.Parent = listFrame
+
+		local padding = Instance.new("UIPadding")
+		padding.PaddingTop = UDim.new(0, 6)
+		padding.PaddingBottom = UDim.new(0, 6)
+		padding.PaddingLeft = UDim.new(0, 6)
+		padding.PaddingRight = UDim.new(0, 6)
+		padding.Parent = listFrame
+
+		local currentVal = default
+		local isOpen = false
+
+		local function rebuild()
+			for _, c in ipairs(listFrame:GetChildren()) do
+				if c:IsA("TextButton") then
+					c:Destroy()
+				end
+			end
+
+			for i, opt in ipairs(options) do
+				local item = Instance.new("TextButton")
+				item.Name = "Item" .. tostring(i)
+				item.Size = UDim2.new(1, 0, 0, 32)
+				item.BackgroundColor3 = theme().Bg
+				bind(item, "BackgroundColor3", "Bg")
+				item.BackgroundTransparency = 0.25
+				item.BorderSizePixel = 0
+				item.Text = tostring(opt)
+				item.TextColor3 = theme().Text
+				bind(item, "TextColor3", "Text")
+				item.Font = L.FontBody
+				item.TextSize = 14
+				item.Parent = listFrame
+				Instance.new("UICorner", item).CornerRadius = UDim.new(0, 8)
+
+				item.MouseButton1Click:Connect(function()
+					currentVal = opt
+					btn.Text = title .. ": " .. tostring(opt)
+					isOpen = false
+					listFrame.Visible = false
+					callback(opt)
+				end)
+			end
+		end
+
+		local function open()
+			if isOpen then
+				return
+			end
+			rebuild()
+			isOpen = true
+			listFrame.Visible = true
+			local items = #options
+			local targetH = math.min(items, 6) * 36 + 12
+			listFrame.Size = UDim2.new(1, 0, 0, targetH)
+		end
+
+		local function close()
+			isOpen = false
+			listFrame.Visible = false
+		end
+
 		btn.MouseButton1Click:Connect(function()
-			currentIdx = (currentIdx % #options) + 1
-			local val = options[currentIdx]
-			btn.Text = title .. ": " .. val
-			callback(val)
+			if isOpen then
+				close()
+			else
+				open()
+			end
+		end)
+
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if processed then
+				return
+			end
+			if not isOpen then
+				return
+			end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				local pos = UserInputService:GetMouseLocation()
+				local absPos = frame.AbsolutePosition
+				local absSize = frame.AbsoluteSize
+				if pos.X < absPos.X or pos.X > absPos.X + absSize.X or pos.Y < absPos.Y or pos.Y > absPos.Y + absSize.Y + listFrame.AbsoluteSize.Y + 12 then
+					close()
+				end
+			end
 		end)
 
 		return frame

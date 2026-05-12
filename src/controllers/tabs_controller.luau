@@ -66,16 +66,27 @@ function TabsController:Init()
 	end
 
 	local TabHome = self.Services.Loader:Load("src/ui/tabs/home.luau")
+	local TabEgg = self.Services.Loader:Load("src/ui/tabs/egg.luau")
 	local TabSettings = self.Services.Loader:Load("src/ui/tabs/settings.luau")
 	local TabProfile = self.Services.Loader:Load("src/ui/tabs/profile.luau")
 	local TabInfo = self.Services.Loader:Load("src/ui/tabs/info.luau")
 
 	self._tabButtons["Главная"] = createTabButton("Главная")
+	self._tabButtons["Egg"] = createTabButton("Egg")
 	self._tabButtons["Настройки"] = createTabButton("Настройки")
 	self._tabButtons["Профиль"] = createTabButton("Профиль")
 	self._tabButtons["Инфо"] = createTabButton("Инфо")
 
 	self._tabs["Главная"] = TabHome({
+		Scroll = createScroll(),
+		Config = self.Config,
+		State = self.State,
+		ThemeService = self.ThemeService,
+		Elements = self.Elements,
+		Services = self.Services,
+	})
+
+	self._tabs["Egg"] = TabEgg({
 		Scroll = createScroll(),
 		Config = self.Config,
 		State = self.State,
@@ -111,7 +122,7 @@ function TabsController:Init()
 		Services = self.Services,
 	})
 
-	self:Switch("Главная")
+	self:Switch(self.State.CurrentTab or "Главная")
 
 	self.Services.RunService.RenderStepped:Connect(function(dt)
 		indicator.Position = UDim2.new(0, 0, 0, self._indicatorSpring:Update(dt))

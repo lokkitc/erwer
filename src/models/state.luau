@@ -10,6 +10,8 @@ local function CreateState(config)
 			MusicEnabled = true,
 			SelectedMode = "Normal",
 			Nickname = "AsuuBkzt",
+			SelectedEggTool = "",
+			AutoPlaceEgg = false,
 			ThemeName = "Dark",
 		},
 		UserData = {},
