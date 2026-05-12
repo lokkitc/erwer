@@ -190,6 +190,24 @@ local function EggTab(deps)
 		return ok
 	end
 
+	local function getGroundPos(pos)
+		local origin = pos + Vector3.new(0, 80, 0)
+		local dir = Vector3.new(0, -200, 0)
+		local hitPos = pos
+		pcall(function()
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.IgnoreWater = true
+			local character = player.Character
+			params.FilterDescendantsInstances = character and { character } or {}
+			local result = workspace:Raycast(origin, dir, params)
+			if result and result.Position then
+				hitPos = result.Position
+			end
+		end)
+		return hitPos
+	end
+
 	local function tryPlaceAt(toolName, pos, cf)
 		local rs = game:GetService("ReplicatedStorage")
 		local ge = rs:FindFirstChild("GameEvents")
@@ -357,14 +375,13 @@ local function EggTab(deps)
 			local steps = 10
 			local angle = (ringIndex % steps) / steps * math.pi * 2
 			local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-			local pos = hrp.Position + offset
+			local rawPos = hrp.Position + offset
+			local pos = getGroundPos(rawPos)
 			local cf = CFrame.new(pos)
 
-			local fired = false
+			local fired = tryPlaceAt(toolName, pos, cf)
 			if state.Values.AutoPlaceMode == "ViewportRing" then
-				fired = viewportClickAt(pos)
-			else
-				fired = tryPlaceAt(toolName, pos, cf)
+				fired = fired or viewportClickAt(pos)
 			end
 			if not fired then
 				pcall(function()
