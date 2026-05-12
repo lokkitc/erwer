@@ -43,17 +43,50 @@ local function EggTab(deps)
 		if not name or name == "" then
 			return nil
 		end
+		local needle = string.lower(tostring(name))
 		local backpack = player:FindFirstChild("Backpack")
 		if backpack then
 			local t = backpack:FindFirstChild(name)
 			if t and t:IsA("Tool") then
 				return t
 			end
+			for _, obj in ipairs(backpack:GetChildren()) do
+				if obj:IsA("Tool") then
+					local n = string.lower(obj.Name)
+					if n == needle then
+						return obj
+					end
+				end
+			end
+			for _, obj in ipairs(backpack:GetChildren()) do
+				if obj:IsA("Tool") then
+					local n = string.lower(obj.Name)
+					if string.find(n, needle, 1, true) then
+						return obj
+					end
+				end
+			end
 		end
 		if player.Character then
 			local t = player.Character:FindFirstChild(name)
 			if t and t:IsA("Tool") then
 				return t
+			end
+			for _, obj in ipairs(player.Character:GetChildren()) do
+				if obj:IsA("Tool") then
+					local n = string.lower(obj.Name)
+					if n == needle then
+						return obj
+					end
+				end
+			end
+			for _, obj in ipairs(player.Character:GetChildren()) do
+				if obj:IsA("Tool") then
+					local n = string.lower(obj.Name)
+					if string.find(n, needle, 1, true) then
+						return obj
+					end
+				end
 			end
 		end
 		return nil
