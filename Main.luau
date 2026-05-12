@@ -20,14 +20,24 @@ if type(URL_BASE) ~= "string" or URL_BASE == "" then
 	error("URL_BASE missing")
 end
 
-local Config = loadstring(game:HttpGet(URL_BASE .. "Config.luau"))()
-local Spring = loadstring(game:HttpGet(URL_BASE .. "Spring.luau"))()
-local CreateState = loadstring(game:HttpGet(URL_BASE .. "State.luau"))()
-local CollectUserData = loadstring(game:HttpGet(URL_BASE .. "UserDataCollector.luau"))()
-local CreateUIElements = loadstring(game:HttpGet(URL_BASE .. "UIElements.luau"))()
+local RemoteLoader = loadstring(game:HttpGet(URL_BASE .. "RemoteLoader.luau"))()
+local loader = RemoteLoader.new(URL_BASE, HttpService)
+
+local Config = loader:LoadFile("Config.luau")
+local Spring = loader:LoadFile("Spring.luau")
+local CreateState = loader:LoadFile("State.luau")
+local CollectUserData = loader:LoadFile("UserDataCollector.luau")
+local CreateUIElements = loader:LoadFile("UIElements.luau")
 
 local State = CreateState(Config)
 State.UserData = CollectUserData(player, services)
+
+local function GetTheme()
+	if State.Values and State.Values.ThemeName and Config.Theme[State.Values.ThemeName] then
+		return Config.Theme[State.Values.ThemeName]
+	end
+	return Config.Theme.Dark
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "BekezatUI"
@@ -61,6 +71,7 @@ local Elements = CreateUIElements({
 	Spring = Spring,
 	Services = services,
 	GetEggTools = GetEggTools,
+	GetTheme = GetTheme,
 })
 
 local L = Config.Layout

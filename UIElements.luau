@@ -2,10 +2,15 @@ local function CreateUIElements(deps)
 	local Config = deps.Config
 	local Spring = deps.Spring
 	local Services = deps.Services
+	local GetTheme = deps.GetTheme
 	local L = Config.Layout
 
 	local RunService = Services.RunService
 	local UserInputService = Services.UserInputService
+
+	local function theme()
+	return (GetTheme and GetTheme()) or Config.Theme.Dark
+	end
 
 	local function CreateToggle(text, default, callback)
 		local frame = Instance.new("Frame")
@@ -17,7 +22,7 @@ local function CreateUIElements(deps)
 		label.Size = UDim2.new(0.72, 0, 1, 0)
 		label.BackgroundTransparency = 1
 		label.Text = text
-		label.TextColor3 = Config.Theme.Dark.Text
+		label.TextColor3 = theme().Text
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.Font = L.FontBody
 		label.TextSize = L.TextBody
@@ -27,7 +32,7 @@ local function CreateUIElements(deps)
 		toggleBtn.Size = UDim2.fromOffset(L.ToggleWidth, L.ToggleHeight2)
 		toggleBtn.Position = UDim2.new(1, -12, 0.5, 0)
 		toggleBtn.AnchorPoint = Vector2.new(1, 0.5)
-		toggleBtn.BackgroundColor3 = Config.Theme.Dark.Stroke
+		toggleBtn.BackgroundColor3 = theme().Stroke
 		toggleBtn.Text = ""
 		toggleBtn.Parent = frame
 
@@ -45,7 +50,8 @@ local function CreateUIElements(deps)
 		local posSpring = Spring.new(enabled and L.ToggleKnobOn or L.ToggleKnobOff, Config.Spring.Damping, Config.Spring.Frequency)
 
 		local function update()
-			toggleBtn.BackgroundColor3 = enabled and Config.Theme.Dark.Accent or Config.Theme.Dark.Stroke
+			local t = theme()
+			toggleBtn.BackgroundColor3 = enabled and t.Accent or t.Stroke
 			posSpring:SetTarget(enabled and L.ToggleKnobOn or L.ToggleKnobOff)
 		end
 
@@ -77,7 +83,7 @@ local function CreateUIElements(deps)
 		label.BackgroundTransparency = 1
 		label.Text = text .. ": <font color='#881798'>" .. default .. "</font>"
 		label.RichText = true
-		label.TextColor3 = Config.Theme.Dark.Text
+		label.TextColor3 = theme().Text
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.Font = L.FontBody
 		label.TextSize = L.TextBody
@@ -86,13 +92,13 @@ local function CreateUIElements(deps)
 		local bar = Instance.new("Frame")
 		bar.Size = UDim2.new(1, 0, 0, L.SliderBarHeight)
 		bar.Position = UDim2.new(0, 0, 0, 34)
-		bar.BackgroundColor3 = Config.Theme.Dark.Stroke
+		bar.BackgroundColor3 = theme().Stroke
 		bar.Parent = frame
 		Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
 
 		local fill = Instance.new("Frame")
 		fill.Size = UDim2.new((default - minVal) / (maxVal - minVal), 0, 1, 0)
-		fill.BackgroundColor3 = Config.Theme.Dark.Accent
+		fill.BackgroundColor3 = theme().Accent
 		fill.Parent = bar
 		Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
@@ -139,7 +145,7 @@ local function CreateUIElements(deps)
 	local function CreateButton(text, callback)
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(1, 0, 0, L.ButtonHeight)
-		btn.BackgroundColor3 = Config.Theme.Dark.Accent
+		btn.BackgroundColor3 = theme().Accent
 		btn.Text = text
 		btn.TextColor3 = Color3.new(1, 1, 1)
 		btn.Font = L.FontButton
@@ -158,7 +164,7 @@ local function CreateUIElements(deps)
 
 		task.spawn(function()
 			while btn.Parent do
-				btn.BackgroundColor3 = Config.Theme.Dark.Accent:Lerp(Color3.new(1, 1, 1), hoverSpring:Update(1 / 60))
+				btn.BackgroundColor3 = theme().Accent:Lerp(Color3.new(1, 1, 1), hoverSpring:Update(1 / 60))
 				RunService.Heartbeat:Wait()
 			end
 		end)
@@ -174,9 +180,9 @@ local function CreateUIElements(deps)
 
 		local btn = Instance.new("TextButton")
 		btn.Size = UDim2.new(1, 0, 1, 0)
-		btn.BackgroundColor3 = Config.Theme.Dark.Glass
+		btn.BackgroundColor3 = theme().Glass
 		btn.Text = title .. ": " .. default
-		btn.TextColor3 = Config.Theme.Dark.Text
+		btn.TextColor3 = theme().Text
 		btn.Font = L.FontBody
 		btn.TextSize = L.TextBody
 		btn.Parent = frame
@@ -198,10 +204,10 @@ local function CreateUIElements(deps)
 	local function CreateTextBox(placeholder, default, callback)
 		local box = Instance.new("TextBox")
 		box.Size = UDim2.new(1, 0, 0, L.TextBoxHeight)
-		box.BackgroundColor3 = Config.Theme.Dark.Glass
+		box.BackgroundColor3 = theme().Glass
 		box.PlaceholderText = placeholder
 		box.Text = default
-		box.TextColor3 = Config.Theme.Dark.Text
+		box.TextColor3 = theme().Text
 		box.Font = L.FontBody
 		box.TextSize = L.TextBody
 		box.ClearTextOnFocus = false
