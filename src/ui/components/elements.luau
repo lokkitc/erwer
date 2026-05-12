@@ -129,24 +129,36 @@ local function CreateElements(deps)
 		bind(stroke, "Color", "Stroke")
 		stroke.Parent = listFrame
 
+		local listScroll = Instance.new("ScrollingFrame")
+		listScroll.Name = "Scroll"
+		listScroll.Size = UDim2.new(1, 0, 1, 0)
+		listScroll.BackgroundTransparency = 1
+		listScroll.BorderSizePixel = 0
+		listScroll.CanvasSize = UDim2.fromOffset(0, 0)
+		listScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		listScroll.ScrollBarThickness = 3
+		listScroll.ScrollBarImageColor3 = theme().Accent
+		bind(listScroll, "ScrollBarImageColor3", "Accent")
+		listScroll.Parent = listFrame
+
 		local layout = Instance.new("UIListLayout")
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
 		layout.Padding = UDim.new(0, 4)
-		layout.Parent = listFrame
+		layout.Parent = listScroll
 
 		local padding = Instance.new("UIPadding")
 		padding.PaddingTop = UDim.new(0, 6)
 		padding.PaddingBottom = UDim.new(0, 6)
 		padding.PaddingLeft = UDim.new(0, 6)
 		padding.PaddingRight = UDim.new(0, 6)
-		padding.Parent = listFrame
+		padding.Parent = listScroll
 
 		local isOpen = false
 		local currentVal = default
 		local listHeight = 0
 
 		local function rebuild()
-			for _, c in ipairs(listFrame:GetChildren()) do
+			for _, c in ipairs(listScroll:GetChildren()) do
 				if c:IsA("TextButton") then
 					c:Destroy()
 				end
@@ -165,7 +177,7 @@ local function CreateElements(deps)
 				bind(item, "TextColor3", "Text")
 				item.Font = L.FontBody
 				item.TextSize = 14
-				item.Parent = listFrame
+				item.Parent = listScroll
 				Instance.new("UICorner", item).CornerRadius = UDim.new(0, 8)
 
 				item.MouseButton1Click:Connect(function()
@@ -187,9 +199,11 @@ local function CreateElements(deps)
 			isOpen = true
 			listFrame.Visible = true
 			local items = #options
-			local targetH = math.min(items, 6) * 36 + 12
+			local maxVisible = 6
+			local targetH = math.min(items, maxVisible) * 36 + 12
 			listHeight = targetH
 			listFrame.Size = UDim2.new(1, 0, 0, targetH)
+			listScroll.CanvasPosition = Vector2.new(0, 0)
 			frame.Size = UDim2.new(1, 0, 0, L.DropdownHeight + 6 + targetH)
 		end
 
