@@ -15,8 +15,8 @@ local function exec(url)
     return chunk()
 end
 
-local URL_BASE = "https://raw.githubusercontent.com/your-username/your-repo-name/main/"
-if URL_BASE == "https://raw.githubusercontent.com/your-username/your-repo-name/main/" then
+local URL_BASE = "https://raw.githubusercontent.com/lokkitc/erwer/main/"
+if URL_BASE == "https://raw.githubusercontent.com/lokkitc/erwer/main/" then
     error("Set URL_BASE to your GitHub raw base, ending with a slash")
 end
 
