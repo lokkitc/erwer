@@ -294,10 +294,23 @@ local function DebugTab(deps)
 		end
 		local ok = false
 		pcall(function()
-			local sc = rawget(_G, "setclipboard")
-			if type(sc) == "function" then
-				sc(text)
-				ok = true
+			local candidates = {}
+			candidates[#candidates + 1] = rawget(_G, "setclipboard")
+			candidates[#candidates + 1] = rawget(_G, "toclipboard")
+			candidates[#candidates + 1] = rawget(_G, "set_clipboard")
+			candidates[#candidates + 1] = (typeof(getgenv) == "function" and getgenv().setclipboard or nil)
+			candidates[#candidates + 1] = (typeof(getgenv) == "function" and getgenv().toclipboard or nil)
+			candidates[#candidates + 1] = (typeof(getgenv) == "function" and getgenv().set_clipboard or nil)
+			candidates[#candidates + 1] = setclipboard
+			candidates[#candidates + 1] = toclipboard
+			candidates[#candidates + 1] = set_clipboard
+
+			for _, fn in ipairs(candidates) do
+				if type(fn) == "function" then
+					fn(text)
+					ok = true
+					break
+				end
 			end
 		end)
 		if not ok then
