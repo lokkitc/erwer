@@ -186,6 +186,52 @@ local function EggTab(deps)
 		return best
 	end
 
+	local function getCanPlantSlots(maxDist)
+		maxDist = maxDist or 80
+		local character = player.Character
+		if not character then
+			return {}
+		end
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if not hrp or not hrp:IsA("BasePart") then
+			return {}
+		end
+		local pl = workspace:FindFirstChild("Farm")
+		local farm = pl and pl:FindFirstChild("Farm")
+		local important = farm and farm:FindFirstChild("Important")
+		local loc = important and important:FindFirstChild("Plant_Locations")
+		if not loc then
+			return {}
+		end
+
+		local slots = {}
+		for _, obj in ipairs(loc:GetChildren()) do
+			if obj.Name == "Can_Plant" and obj:IsA("BasePart") then
+				local d = (obj.Position - hrp.Position).Magnitude
+				if d <= maxDist then
+					slots[#slots + 1] = obj
+				end
+			end
+		end
+		table.sort(slots, function(a, b)
+			return (a.Position - hrp.Position).Magnitude < (b.Position - hrp.Position).Magnitude
+		end)
+		return slots
+	end
+
+	local function getHeldTool(character)
+		character = character or player.Character
+		if not character then
+			return nil
+		end
+		for _, ch in ipairs(character:GetChildren()) do
+			if ch:IsA("Tool") then
+				return ch
+			end
+		end
+		return nil
+	end
+
 	local function resolveFarmRoot()
 		local farmFolder = workspace:FindFirstChild("Farm")
 		if not farmFolder then
@@ -351,13 +397,26 @@ local function EggTab(deps)
 		return ok
 	end
 
-	local function clickPlantSlotAndActivate(canPlant, tool)
+	local function getRandomPointInPart(part)
+		if not part or not part:IsA("BasePart") then
+			return nil
+		end
+		local sx = math.max(0, part.Size.X / 2 - 0.2)
+		local sz = math.max(0, part.Size.Z / 2 - 0.2)
+		local rx = (math.random() * 2 - 1) * sx
+		local rz = (math.random() * 2 - 1) * sz
+		local p = part.CFrame:PointToWorldSpace(Vector3.new(rx, 0, rz))
+		return p
+	end
+
+	local function clickPlantSlotAndActivate(canPlant, tool, worldPos)
 		if not canPlant or not canPlant:IsA("BasePart") or not tool then
 			return false
 		end
 		local did = false
 		pcall(function()
-			did = viewportClickAt(canPlant.Position)
+			local pos = worldPos or canPlant.Position
+			did = viewportClickAt(pos)
 			if did then
 				task.wait(0.03)
 			end
@@ -422,6 +481,7 @@ local function EggTab(deps)
 	local autoConn
 	local lastPlace = 0
 	local ringIndex = 0
+	local canPlantIndex = 0
 	local function setAutoPlace(on)
 		if autoConn then
 			autoConn:Disconnect()
@@ -432,6 +492,7 @@ local function EggTab(deps)
 		end
 		lastPlace = 0
 		ringIndex = 0
+		canPlantIndex = 0
 		autoConn = RunService.Heartbeat:Connect(function()
 			if not state.Values.AutoPlaceEgg then
 				return
@@ -452,12 +513,17 @@ local function EggTab(deps)
 				warn("[Egg] Tool not found:", toolName)
 				return
 			end
-			local equipped = equipSelectedEgg()
-			if equipped then
-				tool = equipped
+			local character = player.Character
+			local held = getHeldTool(character)
+			if not held or held.Name ~= toolName then
+				local equipped = equipSelectedEgg()
+				if equipped then
+					tool = equipped
+				end
+			else
+				tool = held
 			end
 
-			local character = player.Character
 			local hrp = character and character:FindFirstChild("HumanoidRootPart")
 			if not hrp or not hrp:IsA("BasePart") then
 				return
@@ -467,13 +533,16 @@ local function EggTab(deps)
 			local mode = state.Values.AutoPlaceMode or "Mouse"
 
 			if mode == "Mouse" then
-				local canPlant = getNearestCanPlant(80)
-				if not canPlant then
+				local slots = getCanPlantSlots(80)
+				if #slots == 0 then
 					return
 				end
-				fired = clickPlantSlotAndActivate(canPlant, tool)
+				canPlantIndex += 1
+				local canPlant = slots[((canPlantIndex - 1) % #slots) + 1]
+				local jitterPos = getRandomPointInPart(canPlant) or canPlant.Position
+				fired = clickPlantSlotAndActivate(canPlant, tool, jitterPos)
+				fired = fired or tryPlaceAt(toolName, jitterPos, CFrame.new(jitterPos))
 				fired = fired or tryPlaceWithRemotes(toolName, canPlant)
-				fired = fired or tryPlaceAt(toolName, canPlant.Position, canPlant.CFrame)
 			else
 				ringIndex += 1
 				local radius = 10
