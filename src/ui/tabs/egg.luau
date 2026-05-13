@@ -599,7 +599,9 @@ local function EggTab(deps)
 			end
 			local character = player.Character
 			local held = getHeldTool(character)
-			if not held or held.Name ~= toolName then
+			local selectedNorm = normalizeToolNameForMatch(toolName)
+			local heldNorm = normalizeToolNameForMatch(held and held.Name)
+			if not held or heldNorm ~= selectedNorm then
 				local equipped = equipSelectedEgg()
 				if equipped then
 					tool = equipped
@@ -607,6 +609,8 @@ local function EggTab(deps)
 			else
 				tool = held
 			end
+
+			local toolNameToUse = (tool and tool.Name) or toolName
 
 			local hrp = character and character:FindFirstChild("HumanoidRootPart")
 			if not hrp or not hrp:IsA("BasePart") then
@@ -625,8 +629,8 @@ local function EggTab(deps)
 				local canPlant = slots[((canPlantIndex - 1) % #slots) + 1]
 				local jitterPos = getRandomPointInPart(canPlant) or canPlant.Position
 				fired = clickPlantSlotAndActivate(canPlant, tool, jitterPos)
-				fired = fired or tryPlaceAt(toolName, jitterPos, CFrame.new(jitterPos))
-				fired = fired or tryPlaceWithRemotes(toolName, canPlant)
+				fired = fired or tryPlaceAt(toolNameToUse, jitterPos, CFrame.new(jitterPos))
+				fired = fired or tryPlaceWithRemotes(toolNameToUse, canPlant)
 			else
 				ringIndex += 1
 				local radius = 10
@@ -636,7 +640,7 @@ local function EggTab(deps)
 				local rawPos = hrp.Position + offset
 				local pos = getGroundPos(rawPos)
 				local cf = CFrame.new(pos)
-				fired = tryPlaceAt(toolName, pos, cf)
+				fired = tryPlaceAt(toolNameToUse, pos, cf)
 				fired = fired or viewportClickAt(pos)
 			end
 
