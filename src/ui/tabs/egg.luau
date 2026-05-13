@@ -467,14 +467,50 @@ local function EggTab(deps)
 			return false
 		end
 
+		local function isHatchReadyPrompt(prompt)
+			if not prompt or not prompt:IsA("ProximityPrompt") then
+				return false
+			end
+			local txt = (prompt.ActionText or "") .. " " .. (prompt.ObjectText or "")
+			txt = string.lower(txt)
+			local hasTimer = string.match(txt, "%d%d:%d%d") ~= nil
+			local isSkip = string.find(txt, "skip", 1, true) ~= nil
+			local isGrowth = string.find(txt, "growth", 1, true) ~= nil
+			local isHatch = string.find(txt, "hatch", 1, true) ~= nil
+			return isHatch and not hasTimer and not isSkip and not isGrowth
+		end
+
+		local function getEggRootFromPart(part)
+			local cur = part
+			while cur and cur.Parent and cur.Parent ~= petEgg do
+				cur = cur.Parent
+			end
+			return cur
+		end
+
 		local eggPart
+		local eggRoot
 		local bestEggD = maxDist
 		for _, d in ipairs(petEgg:GetDescendants()) do
 			if d:IsA("BasePart") and d.Name == "PetEgg" then
+				local root = getEggRootFromPart(d)
+				local hasReady = false
+				if root then
+					for _, p in ipairs(root:GetDescendants()) do
+						if isHatchReadyPrompt(p) then
+							hasReady = true
+							break
+						end
+					end
+				end
+				if not hasReady then
+					continue
+				end
 				local dist = (d.Position - hrp.Position).Magnitude
 				if dist < bestEggD then
 					bestEggD = dist
 					eggPart = d
+					eggRoot = root
 				end
 			end
 		end
@@ -491,15 +527,10 @@ local function EggTab(deps)
 		local bestPrompt
 		local t0 = os.clock()
 		while os.clock() - t0 < 1.25 and not bestPrompt do
-			for _, d in ipairs(petEgg:GetDescendants()) do
+			local scanRoot = eggRoot or petEgg
+			for _, d in ipairs(scanRoot:GetDescendants()) do
 				if d:IsA("ProximityPrompt") then
-					local txt = (d.ActionText or "") .. " " .. (d.ObjectText or "")
-					txt = string.lower(txt)
-					local hasTimer = string.match(txt, "%d%d:%d%d") ~= nil
-					local isSkip = string.find(txt, "skip", 1, true) ~= nil
-					local isGrowth = string.find(txt, "growth", 1, true) ~= nil
-					local isHatch = string.find(txt, "hatch", 1, true) ~= nil
-					if isHatch and not hasTimer and not isSkip and not isGrowth then
+					if isHatchReadyPrompt(d) then
 						bestPrompt = d
 						break
 					end
@@ -531,7 +562,8 @@ local function EggTab(deps)
 			if vim and vim.SendKeyEvent then
 				local disabled = {}
 				pcall(function()
-					for _, p in ipairs(petEgg:GetDescendants()) do
+					local scanRoot = eggRoot or petEgg
+					for _, p in ipairs(scanRoot:GetDescendants()) do
 						if p:IsA("ProximityPrompt") and p ~= bestPrompt and p.Enabled then
 							p.Enabled = false
 							disabled[#disabled + 1] = p
