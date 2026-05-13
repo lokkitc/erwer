@@ -446,49 +446,66 @@ local function EggTab(deps)
 			return false
 		end
 
-		local bestPrompt
-		local bestD = maxDist
+		local eggPart
+		local bestEggD = maxDist
 		for _, d in ipairs(petEgg:GetDescendants()) do
-			if d:IsA("ProximityPrompt") then
-				local txt = (d.ActionText or "") .. " " .. (d.ObjectText or "")
-				txt = string.lower(txt)
-				if string.find(txt, "hatch") then
-					local part = d.Parent
-					if part and part:IsA("BasePart") then
-						local dist = (part.Position - hrp.Position).Magnitude
-						if dist < bestD then
-							bestD = dist
-							bestPrompt = d
-						end
+			if d:IsA("BasePart") and d.Name == "PetEgg" then
+				local dist = (d.Position - hrp.Position).Magnitude
+				if dist < bestEggD then
+					bestEggD = dist
+					eggPart = d
+				end
+			end
+		end
+		if not eggPart then
+			return false
+		end
+
+		pcall(function()
+			hrp.CFrame = CFrame.new(eggPart.Position + Vector3.new(0, 3, 0))
+		end)
+		task.wait(0.12)
+
+		local bestPrompt
+		local t0 = os.clock()
+		while os.clock() - t0 < 1.25 and not bestPrompt do
+			for _, d in ipairs(petEgg:GetDescendants()) do
+				if d:IsA("ProximityPrompt") then
+					local txt = (d.ActionText or "") .. " " .. (d.ObjectText or "")
+					txt = string.lower(txt)
+					if string.find(txt, "hatch", 1, true) then
+						bestPrompt = d
+						break
 					end
 				end
+			end
+			if not bestPrompt then
+				task.wait(0.05)
 			end
 		end
 
 		if not bestPrompt then
+			pcall(function()
+				hrp.CFrame = originalCf
+			end)
 			return false
 		end
-
-		local promptPart = bestPrompt.Parent
-		if not (promptPart and promptPart:IsA("BasePart")) then
-			return false
-		end
-
-		pcall(function()
-			hrp.CFrame = CFrame.new(promptPart.Position + Vector3.new(0, 3, 0))
-		end)
-		task.wait(0.08)
 
 		local did = false
 		pcall(function()
-			local candidates = {}
-			candidates[#candidates + 1] = rawget(_G, "fireproximityprompt")
-			for _, fn in ipairs(candidates) do
-				if type(fn) == "function" then
-					fn(bestPrompt)
-					did = true
-					break
-				end
+			local fn = rawget(_G, "fireproximityprompt")
+			if type(fn) == "function" then
+				fn(bestPrompt)
+				did = true
+				return
+			end
+
+			local vim = game:GetService("VirtualInputManager")
+			if vim and vim.SendKeyEvent then
+				vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+				task.wait((bestPrompt.HoldDuration or 0) + 0.05)
+				vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+				did = true
 			end
 		end)
 
