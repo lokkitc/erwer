@@ -56,6 +56,7 @@ local function Main(urlBase)
 	gui.Name = "BekezatUI"
 	gui.ResetOnSpawn = false
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.DisplayOrder = 999999
 	gui.Parent = playerGui
 
 	local ui = CreateRootWindow({

@@ -400,6 +400,19 @@ local function EggTab(deps)
 			if not onScreen then
 				return
 			end
+			local blocked = false
+			pcall(function()
+				local gs = game:GetService("GuiService")
+				if gs and gs.GetGuiObjectsAtPosition then
+					local objs = gs:GetGuiObjectsAtPosition(v2.X, v2.Y)
+					if objs and #objs > 0 then
+						blocked = true
+					end
+				end
+			end)
+			if blocked then
+				return
+			end
 			local vim = game:GetService("VirtualInputManager")
 			if vim and vim.SendMouseButtonEvent then
 				vim:SendMouseButtonEvent(v2.X, v2.Y, 0, true, game, 0)
@@ -574,6 +587,9 @@ local function EggTab(deps)
 
 		local did = false
 		pcall(function()
+			if not isHatchReadyPrompt(bestPrompt) then
+				return
+			end
 			local fn = rawget(_G, "fireproximityprompt")
 			if type(fn) == "function" then
 				fn(bestPrompt)
@@ -583,6 +599,9 @@ local function EggTab(deps)
 
 			local vim = game:GetService("VirtualInputManager")
 			if vim and vim.SendKeyEvent then
+				if not isHatchReadyPrompt(bestPrompt) then
+					return
+				end
 				local disabled = {}
 				pcall(function()
 					local scanRoot = eggRoot or petEgg

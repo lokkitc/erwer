@@ -30,6 +30,10 @@ function WindowController:Init()
 	local windowAlphaSpring = self.Spring.new(0.22, self.Config.Spring.Damping, self.Config.Spring.Frequency)
 	local baseScaleSpring = self.Spring.new(1, self.Config.Spring.Damping, self.Config.Spring.Frequency)
 	local dragInput = nil
+	local restoreDragInput = nil
+	local restoreDragStart = Vector2.new()
+	local restorePosStart = UDim2.new()
+	local restoreDragged = false
 
 	local function animate()
 		if self.State.Open then
@@ -94,7 +98,25 @@ function WindowController:Init()
 	end)
 
 	if restoreBtn then
+		restoreBtn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				restoreDragInput = input
+				restoreDragged = false
+				restoreDragStart = Vector2.new(input.Position.X, input.Position.Y)
+				restorePosStart = restoreBtn.Position
+			end
+		end)
+
+		UserInputService.InputEnded:Connect(function(input)
+			if restoreDragInput == input then
+				restoreDragInput = nil
+			end
+		end)
+
 		restoreBtn.MouseButton1Click:Connect(function()
+			if restoreDragged then
+				return
+			end
 			self.State.Open = true
 			animate()
 		end)
@@ -121,6 +143,14 @@ function WindowController:Init()
 
 	RunService.RenderStepped:Connect(function(dt)
 		updateResponsiveScale()
+		if restoreBtn and restoreDragInput and restoreBtn.Visible then
+			local curPos = Vector2.new(restoreDragInput.Position.X, restoreDragInput.Position.Y)
+			local delta = curPos - restoreDragStart
+			if math.abs(delta.X) > 6 or math.abs(delta.Y) > 6 then
+				restoreDragged = true
+			end
+			restoreBtn.Position = restorePosStart + UDim2.fromOffset(delta.X, delta.Y)
+		end
 		if self.State.Dragging then
 			local curPos
 			if dragInput and dragInput.Position then
