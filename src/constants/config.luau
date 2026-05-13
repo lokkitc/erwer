@@ -1,7 +1,7 @@
 local Config = {
 	Window = {
 		Title = "Bekezat Erdos Bot",
-		Version = "v1.1.252345",
+		Version = "v1.1.43",
 		InitialSize = UDim2.fromOffset(560, 420),
 		MinSize = UDim2.fromOffset(460, 340),
 	},

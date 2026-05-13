@@ -433,6 +433,8 @@ local function EggTab(deps)
 			return false
 		end
 
+		local originalCf = hrp.CFrame
+
 		local farm = resolveFarmRoot()
 		local important = farm and farm:FindFirstChild("Important")
 		local obj = important and important:FindFirstChild("Objects_Physical")
@@ -467,13 +469,31 @@ local function EggTab(deps)
 			return false
 		end
 
+		local promptPart = bestPrompt.Parent
+		if not (promptPart and promptPart:IsA("BasePart")) then
+			return false
+		end
+
+		pcall(function()
+			hrp.CFrame = CFrame.new(promptPart.Position + Vector3.new(0, 3, 0))
+		end)
+		task.wait(0.08)
+
 		local did = false
 		pcall(function()
-			local fn = rawget(_G, "fireproximityprompt")
-			if type(fn) == "function" then
-				fn(bestPrompt)
-				did = true
+			local candidates = {}
+			candidates[#candidates + 1] = rawget(_G, "fireproximityprompt")
+			for _, fn in ipairs(candidates) do
+				if type(fn) == "function" then
+					fn(bestPrompt)
+					did = true
+					break
+				end
 			end
+		end)
+
+		pcall(function()
+			hrp.CFrame = originalCf
 		end)
 		return did
 	end
@@ -581,7 +601,7 @@ local function EggTab(deps)
 				return
 			end
 			local now = os.clock()
-			if now - lastHatch < 0.6 then
+			if now - lastHatch < 1.25 then
 				return
 			end
 			lastHatch = now
