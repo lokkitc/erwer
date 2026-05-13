@@ -42,21 +42,6 @@ local function EggTab(deps)
 		return tools
 	end
 
-	local function parseSeedTypeFromToolName(toolName)
-		if not toolName or toolName == "" then
-			return nil
-		end
-		local base = tostring(toolName)
-		local seedType = base:match("^(.-)%s*[Ss]eed")
-		if seedType and seedType ~= "" then
-			seedType = seedType:gsub("%s+$", "")
-			if seedType ~= "" then
-				return seedType
-			end
-		end
-		return base
-	end
-
 	local function findToolByName(name)
 		if not name or name == "" then
 			return nil
@@ -115,20 +100,49 @@ local function EggTab(deps)
 		local tool = findToolByName(toolName)
 		if not tool then
 			warn("[Egg] Tool not found:", toolName)
-			return
+			return nil
 		end
 
 		local character = player.Character
 		if not character then
-			return
+			local ok, char = pcall(function()
+				return player.CharacterAdded:Wait()
+			end)
+			character = ok and char or player.Character
+		end
+		if not character then
+			return nil
 		end
 
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if not humanoid then
-			return
+			local ok, hum = pcall(function()
+				return character:WaitForChild("Humanoid", 2)
+			end)
+			humanoid = ok and hum or character:FindFirstChildOfClass("Humanoid")
+		end
+		if not humanoid then
+			return nil
 		end
 
-		humanoid:EquipTool(tool)
+		local backpack = player:FindFirstChild("Backpack")
+		if tool.Parent == backpack then
+			humanoid:EquipTool(tool)
+			return tool
+		end
+		if tool.Parent == character then
+			return tool
+		end
+		if backpack then
+			pcall(function()
+				tool.Parent = backpack
+			end)
+			if tool.Parent == backpack then
+				humanoid:EquipTool(tool)
+				return tool
+			end
+		end
+		return nil
 	end
 
 	local function getNearestCanPlant(maxDist)
@@ -216,7 +230,6 @@ local function EggTab(deps)
 
 		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
 		local r2 = ge:FindFirstChild("TryUseGear")
-		local plantRe = ge:FindFirstChild("Plant_RE")
 		local targetPos = canPlant.Position
 		local targetCf = canPlant.CFrame
 
@@ -230,13 +243,6 @@ local function EggTab(deps)
 
 		local ok = false
 		pcall(function()
-			local seedType = parseSeedTypeFromToolName(toolName)
-			if plantRe and seedType and seedType ~= "" then
-				ok = fire(plantRe, targetPos, seedType, canPlant.Name)
-				if ok then
-					return
-				end
-			end
 			ok = fire(r1, toolName, targetPos)
 			or fire(r1, toolName, targetCf)
 			or fire(r1, targetPos, toolName)
@@ -276,8 +282,7 @@ local function EggTab(deps)
 		end
 		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
 		local r2 = ge:FindFirstChild("TryUseGear")
-		local plantRe = ge:FindFirstChild("Plant_RE")
-		if not (r1 or r2 or plantRe) then
+		if not (r1 or r2) then
 			warn("[Egg] Placement remotes not found under ReplicatedStorage.GameEvents")
 			return false
 		end
@@ -292,13 +297,6 @@ local function EggTab(deps)
 
 		local ok = false
 		pcall(function()
-			local seedType = parseSeedTypeFromToolName(toolName)
-			if plantRe and seedType and seedType ~= "" then
-				ok = fire(plantRe, pos, seedType, "Can_Plant")
-				if ok then
-					return
-				end
-			end
 			if not cf then
 				cf = CFrame.new(pos)
 			end
@@ -454,7 +452,10 @@ local function EggTab(deps)
 				warn("[Egg] Tool not found:", toolName)
 				return
 			end
-			equipSelectedEgg()
+			local equipped = equipSelectedEgg()
+			if equipped then
+				tool = equipped
+			end
 
 			local character = player.Character
 			local hrp = character and character:FindFirstChild("HumanoidRootPart")
