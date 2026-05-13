@@ -28,8 +28,11 @@ local function EggTab(deps)
 				return
 			end
 			for _, obj in ipairs(container:GetChildren()) do
-				if obj:IsA("Tool") and string.find(string.lower(obj.Name), "egg") then
+				if obj:IsA("Tool") then
+					local n = string.lower(obj.Name)
+					if string.find(n, "egg", 1, true) or string.find(n, "seed", 1, true) then
 					tools[#tools + 1] = obj.Name
+					end
 				end
 			end
 		end
@@ -37,6 +40,21 @@ local function EggTab(deps)
 		scan(player.Character)
 		table.sort(tools)
 		return tools
+	end
+
+	local function parseSeedTypeFromToolName(toolName)
+		if not toolName or toolName == "" then
+			return nil
+		end
+		local base = tostring(toolName)
+		local seedType = base:match("^(.-)%s*[Ss]eed")
+		if seedType and seedType ~= "" then
+			seedType = seedType:gsub("%s+$", "")
+			if seedType ~= "" then
+				return seedType
+			end
+		end
+		return base
 	end
 
 	local function findToolByName(name)
@@ -198,6 +216,7 @@ local function EggTab(deps)
 
 		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
 		local r2 = ge:FindFirstChild("TryUseGear")
+		local plantRe = ge:FindFirstChild("Plant_RE")
 		local targetPos = canPlant.Position
 		local targetCf = canPlant.CFrame
 
@@ -211,6 +230,13 @@ local function EggTab(deps)
 
 		local ok = false
 		pcall(function()
+			local seedType = parseSeedTypeFromToolName(toolName)
+			if plantRe and seedType and seedType ~= "" then
+				ok = fire(plantRe, targetPos, seedType, canPlant.Name)
+				if ok then
+					return
+				end
+			end
 			ok = fire(r1, toolName, targetPos)
 			or fire(r1, toolName, targetCf)
 			or fire(r1, targetPos, toolName)
@@ -250,8 +276,9 @@ local function EggTab(deps)
 		end
 		local r1 = ge:FindFirstChild("TryUsePlaceableGear")
 		local r2 = ge:FindFirstChild("TryUseGear")
-		if not (r1 or r2) then
-			warn("[Egg] TryUsePlaceableGear/TryUseGear not found under ReplicatedStorage.GameEvents")
+		local plantRe = ge:FindFirstChild("Plant_RE")
+		if not (r1 or r2 or plantRe) then
+			warn("[Egg] Placement remotes not found under ReplicatedStorage.GameEvents")
 			return false
 		end
 
@@ -265,6 +292,13 @@ local function EggTab(deps)
 
 		local ok = false
 		pcall(function()
+			local seedType = parseSeedTypeFromToolName(toolName)
+			if plantRe and seedType and seedType ~= "" then
+				ok = fire(plantRe, pos, seedType, "Can_Plant")
+				if ok then
+					return
+				end
+			end
 			if not cf then
 				cf = CFrame.new(pos)
 			end
