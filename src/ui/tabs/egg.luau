@@ -30,8 +30,8 @@ local function EggTab(deps)
 			for _, obj in ipairs(container:GetChildren()) do
 				if obj:IsA("Tool") then
 					local n = string.lower(obj.Name)
-					if string.find(n, "egg", 1, true) or string.find(n, "seed", 1, true) then
-					tools[#tools + 1] = obj.Name
+					if string.find(n, "egg", 1, true) then
+						tools[#tools + 1] = obj.Name
 					end
 				end
 			end
@@ -353,6 +353,21 @@ local function EggTab(deps)
 		return ok
 	end
 
+	local function clickPlantSlotAndActivate(canPlant, tool)
+		if not canPlant or not canPlant:IsA("BasePart") or not tool then
+			return false
+		end
+		local did = false
+		pcall(function()
+			did = viewportClickAt(canPlant.Position)
+			if did then
+				task.wait(0.03)
+			end
+			tool:Activate()
+		end)
+		return did
+	end
+
 	local function tryHatchNearestEgg(maxDist)
 		maxDist = maxDist or 30
 		local character = player.Character
@@ -455,7 +470,8 @@ local function EggTab(deps)
 				if not canPlant then
 					return
 				end
-				fired = tryPlaceWithRemotes(toolName, canPlant)
+				fired = clickPlantSlotAndActivate(canPlant, tool)
+				fired = fired or tryPlaceWithRemotes(toolName, canPlant)
 				fired = fired or tryPlaceAt(toolName, canPlant.Position, canPlant.CFrame)
 			else
 				ringIndex += 1
