@@ -23,19 +23,45 @@ function WindowController:Init()
 	local mainFrame = self.UI.MainFrame
 	local titleBar = self.UI.TitleBar
 	local uiScale = self.UI.UIScale
+	local restoreBtn = self.UI.RestoreButton
+	local camera = workspace.CurrentCamera
 
 	local windowScaleSpring = self.Spring.new(uiScale.Scale, self.Config.Spring.Damping, self.Config.Spring.Frequency)
 	local windowAlphaSpring = self.Spring.new(0.22, self.Config.Spring.Damping, self.Config.Spring.Frequency)
+	local baseScaleSpring = self.Spring.new(1, self.Config.Spring.Damping, self.Config.Spring.Frequency)
+	local dragInput = nil
 
 	local function animate()
 		if self.State.Open then
 			mainFrame.Visible = true
+			if restoreBtn then
+				restoreBtn.Visible = false
+			end
 			windowScaleSpring:SetTarget(1)
 			windowAlphaSpring:SetTarget(0.22)
 		else
+			if restoreBtn then
+				restoreBtn.Visible = true
+			end
 			windowScaleSpring:SetTarget(0.7)
 			windowAlphaSpring:SetTarget(1)
 		end
+	end
+
+	local function updateResponsiveScale()
+		if not camera then
+			camera = workspace.CurrentCamera
+		end
+		local vp = camera and camera.ViewportSize
+		if not vp then
+			return
+		end
+		local w = math.max(1, vp.X)
+		local h = math.max(1, vp.Y)
+		local sx = w / math.max(1, self.Config.Window.InitialSize.X.Offset)
+		local sy = h / math.max(1, self.Config.Window.InitialSize.Y.Offset)
+		local target = math.min(1, math.max(0.62, math.min(sx, sy) * 0.95))
+		baseScaleSpring:SetTarget(target)
 	end
 
 	-- Load persisted state
@@ -67,33 +93,55 @@ function WindowController:Init()
 		animate()
 	end)
 
+	if restoreBtn then
+		restoreBtn.MouseButton1Click:Connect(function()
+			self.State.Open = true
+			animate()
+		end)
+	end
+
 	-- Drag
 	titleBar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			self.State.Dragging = true
-			self._dragStart = UserInputService:GetMouseLocation()
+			dragInput = input
+			self._dragStart = Vector2.new(input.Position.X, input.Position.Y)
 			self._frameStart = mainFrame.Position
 		end
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			self.State.Dragging = false
+			if dragInput == input then
+				dragInput = nil
+			end
 		end
 	end)
 
 	RunService.RenderStepped:Connect(function(dt)
+		updateResponsiveScale()
 		if self.State.Dragging then
-			local delta = UserInputService:GetMouseLocation() - self._dragStart
+			local curPos
+			if dragInput and dragInput.Position then
+				curPos = Vector2.new(dragInput.Position.X, dragInput.Position.Y)
+			else
+				curPos = UserInputService:GetMouseLocation()
+			end
+			local delta = curPos - self._dragStart
 			mainFrame.Position = self._frameStart + UDim2.fromOffset(delta.X, delta.Y)
 		end
 
 		local s = windowScaleSpring:Update(dt)
+		local bs = baseScaleSpring:Update(dt)
 		local a = windowAlphaSpring:Update(dt)
-		uiScale.Scale = s
+		uiScale.Scale = s * bs
 		mainFrame.BackgroundTransparency = a
 		if not self.State.Open and a > 0.98 then
 			mainFrame.Visible = false
+			if restoreBtn then
+				restoreBtn.Visible = true
+			end
 		end
 	end)
 

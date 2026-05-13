@@ -439,6 +439,7 @@ local function EggTab(deps)
 	end
 
 	local hatchInProgress = false
+	local hatchEggIndex = 0
 	local function tryHatchNearestEgg(maxDist)
 		maxDist = maxDist or 30
 		if hatchInProgress then
@@ -488,31 +489,53 @@ local function EggTab(deps)
 			return cur
 		end
 
-		local eggPart
-		local eggRoot
-		local bestEggD = maxDist
+		local function getEggPartFromRoot(root)
+			if not root then
+				return nil
+			end
+			for _, d in ipairs(root:GetDescendants()) do
+				if d:IsA("BasePart") and d.Name == "PetEgg" then
+					return d
+				end
+			end
+			return nil
+		end
+
+		local readyEggs = {}
+		local seen = {}
 		for _, d in ipairs(petEgg:GetDescendants()) do
 			if d:IsA("BasePart") and d.Name == "PetEgg" then
 				local root = getEggRootFromPart(d)
-				local hasReady = false
-				if root then
+				if root and not seen[root] then
+					seen[root] = true
+					local hasReady = false
 					for _, p in ipairs(root:GetDescendants()) do
 						if isHatchReadyPrompt(p) then
 							hasReady = true
 							break
 						end
 					end
-				end
-				if not hasReady then
-					continue
-				end
-				local dist = (d.Position - hrp.Position).Magnitude
-				if dist < bestEggD then
-					bestEggD = dist
-					eggPart = d
-					eggRoot = root
+					if hasReady then
+						local part = getEggPartFromRoot(root) or d
+						readyEggs[#readyEggs + 1] = { root = root, part = part }
+					end
 				end
 			end
+		end
+
+		table.sort(readyEggs, function(a, b)
+			local af = a.root and a.root:GetFullName() or ""
+			local bf = b.root and b.root:GetFullName() or ""
+			return af < bf
+		end)
+
+		local eggPart
+		local eggRoot
+		if #readyEggs > 0 then
+			hatchEggIndex += 1
+			local idx = ((hatchEggIndex - 1) % #readyEggs) + 1
+			eggRoot = readyEggs[idx].root
+			eggPart = readyEggs[idx].part
 		end
 		if not eggPart then
 			hatchInProgress = false

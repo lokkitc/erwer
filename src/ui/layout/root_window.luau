@@ -13,6 +13,29 @@ local function CreateRootWindow(deps)
 		ThemeService:Bind(inst, prop, key)
 	end
 
+	local restoreBtn = Instance.new("TextButton")
+	restoreBtn.Name = "RestoreButton"
+	restoreBtn.Size = UDim2.fromOffset(44, 44)
+	restoreBtn.Position = UDim2.new(0, 18, 0.5, 0)
+	restoreBtn.AnchorPoint = Vector2.new(0, 0.5)
+	restoreBtn.BackgroundColor3 = T().Accent
+	bind(restoreBtn, "BackgroundColor3", "Accent")
+	restoreBtn.BackgroundTransparency = 0.15
+	restoreBtn.Text = "B"
+	restoreBtn.TextColor3 = Color3.new(1, 1, 1)
+	restoreBtn.Font = L.FontButton
+	restoreBtn.TextSize = 18
+	restoreBtn.Visible = false
+	restoreBtn.ZIndex = 50
+	restoreBtn.Parent = gui
+	Instance.new("UICorner", restoreBtn).CornerRadius = UDim.new(1, 0)
+	local restoreStroke = Instance.new("UIStroke")
+	restoreStroke.Thickness = 1.2
+	restoreStroke.Color = T().Stroke
+	bind(restoreStroke, "Color", "Stroke")
+	restoreStroke.Transparency = 0.35
+	restoreStroke.Parent = restoreBtn
+
 	local mainFrame = Instance.new("Frame")
 	mainFrame.Name = "MainWindow"
 	mainFrame.Size = Config.Window.InitialSize
@@ -154,6 +177,7 @@ local function CreateRootWindow(deps)
 		SidebarList = sidebarList,
 		Indicator = indicator,
 		Content = content,
+		RestoreButton = restoreBtn,
 		UIScale = uiScale,
 		SidebarDivider = sidebarDivider,
 
