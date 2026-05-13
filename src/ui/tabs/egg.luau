@@ -495,7 +495,11 @@ local function EggTab(deps)
 				if d:IsA("ProximityPrompt") then
 					local txt = (d.ActionText or "") .. " " .. (d.ObjectText or "")
 					txt = string.lower(txt)
-					if string.find(txt, "hatch", 1, true) then
+					local hasTimer = string.match(txt, "%d%d:%d%d") ~= nil
+					local isSkip = string.find(txt, "skip", 1, true) ~= nil
+					local isGrowth = string.find(txt, "growth", 1, true) ~= nil
+					local isHatch = string.find(txt, "hatch", 1, true) ~= nil
+					if isHatch and not hasTimer and not isSkip and not isGrowth then
 						bestPrompt = d
 						break
 					end
@@ -525,9 +529,25 @@ local function EggTab(deps)
 
 			local vim = game:GetService("VirtualInputManager")
 			if vim and vim.SendKeyEvent then
+				local disabled = {}
+				pcall(function()
+					for _, p in ipairs(petEgg:GetDescendants()) do
+						if p:IsA("ProximityPrompt") and p ~= bestPrompt and p.Enabled then
+							p.Enabled = false
+							disabled[#disabled + 1] = p
+						end
+					end
+				end)
 				vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
 				task.wait((bestPrompt.HoldDuration or 0) + 0.05)
 				vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+				pcall(function()
+					for _, p in ipairs(disabled) do
+						if p and p.Parent then
+							p.Enabled = true
+						end
+					end
+				end)
 				did = true
 			end
 		end)
