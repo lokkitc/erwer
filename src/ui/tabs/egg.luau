@@ -42,20 +42,33 @@ local function EggTab(deps)
 		return tools
 	end
 
+	local function normalizeToolNameForMatch(name)
+		if not name then
+			return ""
+		end
+		local s = string.lower(tostring(name))
+		s = s:gsub("%s+", " ")
+		s = s:gsub("%s*[xX]%s*%d+%s*$", "")
+		s = s:gsub("%s*%d+%s*$", "")
+		s = s:gsub("%s+$", "")
+		return s
+	end
+
 	local function findToolByName(name)
 		if not name or name == "" then
 			return nil
 		end
-		local needle = string.lower(tostring(name))
+		local needleRaw = tostring(name)
+		local needle = normalizeToolNameForMatch(needleRaw)
 		local backpack = player:FindFirstChild("Backpack")
 		if backpack then
-			local t = backpack:FindFirstChild(name)
+			local t = backpack:FindFirstChild(needleRaw)
 			if t and t:IsA("Tool") then
 				return t
 			end
 			for _, obj in ipairs(backpack:GetChildren()) do
 				if obj:IsA("Tool") then
-					local n = string.lower(obj.Name)
+					local n = normalizeToolNameForMatch(obj.Name)
 					if n == needle then
 						return obj
 					end
@@ -63,21 +76,21 @@ local function EggTab(deps)
 			end
 			for _, obj in ipairs(backpack:GetChildren()) do
 				if obj:IsA("Tool") then
-					local n = string.lower(obj.Name)
-					if string.find(n, needle, 1, true) then
+					local n = normalizeToolNameForMatch(obj.Name)
+					if needle ~= "" and string.find(n, needle, 1, true) then
 						return obj
 					end
 				end
 			end
 		end
 		if player.Character then
-			local t = player.Character:FindFirstChild(name)
+			local t = player.Character:FindFirstChild(needleRaw)
 			if t and t:IsA("Tool") then
 				return t
 			end
 			for _, obj in ipairs(player.Character:GetChildren()) do
 				if obj:IsA("Tool") then
-					local n = string.lower(obj.Name)
+					local n = normalizeToolNameForMatch(obj.Name)
 					if n == needle then
 						return obj
 					end
@@ -85,8 +98,8 @@ local function EggTab(deps)
 			end
 			for _, obj in ipairs(player.Character:GetChildren()) do
 				if obj:IsA("Tool") then
-					local n = string.lower(obj.Name)
-					if string.find(n, needle, 1, true) then
+					local n = normalizeToolNameForMatch(obj.Name)
+					if needle ~= "" and string.find(n, needle, 1, true) then
 						return obj
 					end
 				end
@@ -425,11 +438,17 @@ local function EggTab(deps)
 		return did
 	end
 
+	local hatchInProgress = false
 	local function tryHatchNearestEgg(maxDist)
 		maxDist = maxDist or 30
+		if hatchInProgress then
+			return false
+		end
+		hatchInProgress = true
 		local character = player.Character
 		local hrp = character and character:FindFirstChild("HumanoidRootPart")
 		if not hrp or not hrp:IsA("BasePart") then
+			hatchInProgress = false
 			return false
 		end
 
@@ -439,10 +458,12 @@ local function EggTab(deps)
 		local important = farm and farm:FindFirstChild("Important")
 		local obj = important and important:FindFirstChild("Objects_Physical")
 		if not obj then
+			hatchInProgress = false
 			return false
 		end
 		local petEgg = obj:FindFirstChild("PetEgg")
 		if not petEgg then
+			hatchInProgress = false
 			return false
 		end
 
@@ -458,6 +479,7 @@ local function EggTab(deps)
 			end
 		end
 		if not eggPart then
+			hatchInProgress = false
 			return false
 		end
 
@@ -488,6 +510,7 @@ local function EggTab(deps)
 			pcall(function()
 				hrp.CFrame = originalCf
 			end)
+			hatchInProgress = false
 			return false
 		end
 
@@ -512,6 +535,7 @@ local function EggTab(deps)
 		pcall(function()
 			hrp.CFrame = originalCf
 		end)
+		hatchInProgress = false
 		return did
 	end
 
@@ -532,6 +556,9 @@ local function EggTab(deps)
 		canPlantIndex = 0
 		autoConn = RunService.Heartbeat:Connect(function()
 			if not state.Values.AutoPlaceEgg then
+				return
+			end
+			if hatchInProgress then
 				return
 			end
 			local now = os.clock()
@@ -622,7 +649,7 @@ local function EggTab(deps)
 				return
 			end
 			lastHatch = now
-			tryHatchNearestEgg(30)
+			tryHatchNearestEgg(1e9)
 		end)
 	end
 
